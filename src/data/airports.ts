@@ -61,12 +61,12 @@ const fold = (s: string) => s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCa
 const searchText = airports.map((a) => ({ code: a.code.toLowerCase(), city: fold(a.city), name: fold(a.name) }));
 
 /** Airports matching free text by code, city or name; best matches first. Optionally limited to one country. */
-export function searchAirports(query: string, country?: string, limit = 8): Airport[] {
+/** Best matches for a typed query among the given airports (all of them by default). */
+export function searchAirports(query: string, pool: Airport[] = airports, limit = 8): Airport[] {
   const q = fold(query.trim());
   if (!q) return [];
   const scored: { airport: Airport; score: number }[] = [];
-  for (const a of airports) {
-    if (country && a.country !== country) continue;
+  for (const a of pool) {
     const t = searchText[a.index];
     const score =
       t.code === q ? 0

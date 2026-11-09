@@ -109,13 +109,14 @@ export default function App() {
   const [diff, setDiff] = useState<Airport[]>([]);
 
   const destinations = useMemo(() => destinationsFrom(target), [target]);
-  const airportMatches = useMemo(
-    () => searchAirports(query, countryKnown ? target.country : undefined),
-    [query, countryKnown, target],
-  );
+  // Once the country is known, the map marks and the dropdown offers only the airports that could be the answer.
   const candidates = useMemo(
     () => (countryKnown ? playableIn(target.country) : []),
     [countryKnown, target],
+  );
+  const airportMatches = useMemo(
+    () => searchAirports(query, countryKnown ? candidates : undefined),
+    [query, countryKnown, candidates],
   );
   const countryMatches = useMemo(() => searchCountries(query), [query]);
   const done = feedback?.kind === 'correct' || feedback?.kind === 'revealed';
