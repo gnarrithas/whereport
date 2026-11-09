@@ -1,0 +1,51 @@
+:root {
+  font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  color: #1d2330;
+}
+html, body, #root, .app { margin: 0; height: 100%; }
+.app { position: relative; overflow: hidden; }
+.map { position: absolute; inset: 0; }
+
+.overlay {
+  position: absolute; inset: 0;
+  display: grid; place-items: center;
+}
+.overlay.blurred {
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  background: rgba(20, 30, 45, 0.25);
+}
+
+.card {
+  background: rgba(255, 255, 255, 0.95);
+  border-radius: 12px;
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.18);
+  padding: 16px 20px;
+}
+.menu { text-align: center; padding: 32px 48px; }
+.menu h1 { margin: 0 0 8px; }
+.menu p { margin: 0 0 24px; color: #555; }
+
+.hud {
+  position: absolute; top: 16px; left: 50%; transform: translateX(-50%);
+  font-size: 1.25rem;
+}
+.panel.bottom {
+  position: absolute; bottom: 32px; left: 50%; transform: translateX(-50%);
+  min-width: 300px; text-align: center;
+}
+.panel h2 { margin: 0 0 8px; font-size: 1.2rem; }
+.panel p { margin: 0 0 12px; }
+.good { color: #2e9e4f; }
+.bad { color: #d64545; }
+
+.actions { display: flex; gap: 8px; justify-content: center; }
+button {
+  font: inherit; cursor: pointer;
+  padding: 8px 18px; border-radius: 8px;
+  border: 1px solid #c8cdd6; background: #fff;
+}
+button:hover { background: #f2f4f7; }
+button.primary { background: #2563eb; border-color: #2563eb; color: #fff; }
+button.primary:hover { background: #1d4ed8; }
+.menu button.primary { font-size: 1.15rem; padding: 12px 32px; }
