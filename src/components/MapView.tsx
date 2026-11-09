@@ -1,6 +1,6 @@
 import { useEffect, useRef } from 'react';
 import * as maplibregl from 'maplibre-gl';
-import type { GeoJSONSource, Map as MlMap } from 'maplibre-gl';
+import type { GeoJSONSource, LngLatBoundsLike, Map as MlMap } from 'maplibre-gl';
 import type { FeatureCollection, Point } from 'geojson';
 import workerUrl from 'maplibre-gl/dist/maplibre-gl-worker.mjs?url';
 import { airports, type Airport, type Destination } from '../data/airports';
@@ -74,6 +74,8 @@ const withRouteLayers: maplibregl.TransformStyleFunction = (_previous, next) => 
   ],
 });
 
+const WORLD: LngLatBoundsLike = [[-180, -60], [180, 80]];
+
 export default function MapView({ origin, destinations }: Props) {
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<MlMap | null>(null);
@@ -85,8 +87,8 @@ export default function MapView({ origin, destinations }: Props) {
   useEffect(() => {
     const map = new maplibregl.Map({
       container: containerRef.current!,
-      center: [15, 30],
-      zoom: 1.6,
+      bounds: WORLD,
+      fitBoundsOptions: { padding: 20 },
     });
     map.setStyle(BASEMAP_STYLE, { transformStyle: withRouteLayers });
     map.addControl(new maplibregl.NavigationControl({ showCompass: false }));
@@ -139,20 +141,10 @@ function render(map: MlMap, origin: Airport | null, destinations: Destination[])
     dots(destinations.map((d) => ({ airport: d.airport, r: radius(d.passengers) }))),
   );
   (map.getSource(ORIGIN) as GeoJSONSource).setData(origin ? dots([{ airport: origin, r: 8 }]) : empty);
-  frame(map, origin, destinations);
+  frame(map);
 }
 
-/** Fit the destinations (and origin, once revealed), taking the short way across the antimeridian. */
-function frame(map: MlMap, origin: Airport | null, destinations: Destination[]) {
-  const points = [...(origin ? [origin] : []), ...destinations.map((d) => d.airport)];
-  if (!points.length) return;
-  const [ox, oy] = points[0].lngLat;
-  let w = ox, e = ox, s = oy, n = oy;
-  for (const airport of points) {
-    const [x, y] = airport.lngLat;
-    const ux = ox + ((((x - ox) % 360) + 540) % 360) - 180;
-    w = Math.min(w, ux); e = Math.max(e, ux);
-    s = Math.min(s, y); n = Math.max(n, y);
-  }
-  map.fitBounds([[w, Math.max(s, -80)], [e, Math.min(n, 85)]], { padding: 80, maxZoom: 7, duration: 1200 });
+/** Show the whole world, whatever the airport. */
+function frame(map: MlMap) {
+  map.fitBounds(WORLD, { padding: 20, duration: 1200 });
 }

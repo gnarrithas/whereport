@@ -11,12 +11,12 @@ export interface Airport {
 
 export interface Destination {
   airport: Airport;
-  /** Passengers per year on the route, both directions combined (0 when unknown). */
+  /** Passengers per year flown from the origin to this destination. */
   passengers: number;
 }
 
 type AirportRow = [string, string, string, string, number, number];
-type RouteRow = [number, number, number];
+type DestinationRow = [number, number];
 
 export const datasetDate: string = data.routes_as_of || data.built;
 
@@ -26,14 +26,10 @@ export const airports: Airport[] = (data.airports as AirportRow[]).map(
 
 const byCode = new Map(airports.map((a) => [a.code, a]));
 
-const destinations: Destination[][] = airports.map(() => []);
-// Only international routes: domestic flights (both ends in one country) are left out.
-for (const [a, b, passengers] of data.routes as RouteRow[]) {
-  if (airports[a].country === airports[b].country) continue;
-  destinations[a].push({ airport: airports[b], passengers });
-  destinations[b].push({ airport: airports[a], passengers });
-}
-for (const list of destinations) list.sort((x, y) => y.passengers - x.passengers);
+// Built offline by scripts/build_airports.py: foreign destinations flown to directly, busiest first.
+const destinations: Destination[][] = (data.destinations as DestinationRow[][]).map((rows) =>
+  rows.map(([index, passengers]) => ({ airport: airports[index], passengers })),
+);
 
 export function findAirport(code: string): Airport | undefined {
   return byCode.get(code.trim().toUpperCase());
@@ -44,9 +40,12 @@ export function destinationsFrom(airport: Airport): Destination[] {
   return destinations[airport.index];
 }
 
-/** Airports with enough international routes to make a fair puzzle. */
-const MIN_DESTINATIONS = 10;
-const playable = airports.filter((a) => destinations[a.index].length >= MIN_DESTINATIONS);
+/** Airports whose destinations identify them unambiguously, chosen offline by scripts/build_airports.py. */
+const unique: Airport[] = (data.unique as number[]).map((index) => airports[index]);
+
+/** Fewest destinations an airport needs to make a fair puzzle. */
+const MIN_DESTINATIONS = 4;
+const playable = unique.filter((a) => destinations[a.index].length >= MIN_DESTINATIONS);
 
 export function randomAirport(exclude?: Airport): Airport {
   const pool = exclude ? playable.filter((a) => a !== exclude) : playable;

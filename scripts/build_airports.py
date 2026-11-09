@@ -1,10 +1,11 @@
 #!/usr/bin/env python3
-"""Compact a Flight Atlas flights.json into the airport/route data the app loads."""
+"""Compact a Flight Atlas flights.json into the airport, destination and puzzle data the app loads."""
 
 import argparse
 import json
 import logging
 import sys
+from collections import Counter
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -17,8 +18,52 @@ ROUTE_FIELDS = ("a", "b", "ab", "ba")
 @dataclass
 class Summary:
     airports: int
-    routes: int
+    flights: int
+    playable: int
+    ambiguous: int
     skipped: int
+
+
+def directed_destinations(airports: dict[str, list], routes: dict[str, list]) -> tuple[list[dict[int, int]], int]:
+    """Per airport, its foreign direct-flight destinations mapped to passengers per year flown there.
+
+    A route a-b is a flight a->b only when its "ab" traffic is positive (b->a: "ba"). Domestic routes are left out.
+    """
+    count = len(airports["code"])
+    countries = airports["country"]
+    destinations: list[dict[int, int]] = [{} for _ in range(count)]
+    skipped = 0
+    for a, b, ab, ba in zip(routes["a"], routes["b"], routes["ab"], routes["ba"]):
+        if not (0 <= a < count and 0 <= b < count) or a == b:
+            skipped += 1
+            continue
+        if countries[a] == countries[b]:
+            continue
+        for origin, dest, passengers in ((a, b, ab), (b, a, ba)):
+            passengers = int(passengers or 0)
+            if passengers > 0:
+                if dest in destinations[origin]:
+                    skipped += 1
+                destinations[origin][dest] = max(passengers, destinations[origin].get(dest, 0))
+    return destinations, skipped
+
+
+def playable_airports(destinations: list[dict[int, int]]) -> tuple[list[int], int]:
+    """Airports with destinations whose destination set no other airport shares.
+
+    Also returns how many airports with destinations were left out as ambiguous.
+    """
+    owners = Counter(frozenset(d) for d in destinations)
+    playable: list[int] = []
+    ambiguous = 0
+    for i, dests in enumerate(destinations):
+        if not dests:
+            continue
+        if owners[frozenset(dests)] > 1:
+            ambiguous += 1
+        else:
+            playable.append(i)
+    return playable, ambiguous
 
 
 def build(source: dict[str, object]) -> tuple[dict[str, object], Summary]:
@@ -31,19 +76,8 @@ def build(source: dict[str, object]) -> tuple[dict[str, object], Summary]:
         raise ValueError(f"missing columns: {', '.join(missing)}")
 
     count = len(airports["code"])
-    rows: list[list[object]] = []
-    seen: set[tuple[int, int]] = set()
-    skipped = 0
-    for a, b, ab, ba in zip(routes["a"], routes["b"], routes["ab"], routes["ba"]):
-        if not (0 <= a < count and 0 <= b < count) or a == b:
-            skipped += 1
-            continue
-        key = (min(a, b), max(a, b))
-        if key in seen:
-            skipped += 1
-            continue
-        seen.add(key)
-        rows.append([a, b, int(ab or 0) + int(ba or 0)])
+    destinations, skipped = directed_destinations(airports, routes)
+    playable, ambiguous = playable_airports(destinations)
 
     out = {
         "built": source.get("built", ""),
@@ -54,10 +88,22 @@ def build(source: dict[str, object]) -> tuple[dict[str, object], Summary]:
              round(float(airports["lon"][i]), 4), round(float(airports["lat"][i]), 4)]
             for i in range(count)
         ],
-        # [airport index, airport index, passengers per year (both directions)]
-        "routes": rows,
+        # per airport: [[destination index, passengers per year flown there], ...], busiest first
+        "destinations": [
+            [[d, p] for d, p in sorted(dests.items(), key=lambda item: -item[1])]
+            for dests in destinations
+        ],
+        # indices of airports whose destinations identify them unambiguously
+        "unique": playable,
     }
-    return out, Summary(airports=count, routes=len(rows), skipped=skipped)
+    summary = Summary(
+        airports=count,
+        flights=sum(len(d) for d in destinations),
+        playable=len(playable),
+        ambiguous=ambiguous,
+        skipped=skipped,
+    )
+    return out, summary
 
 
 def main() -> int:
@@ -76,9 +122,15 @@ def main() -> int:
 
     if summary.skipped:
         log.warning("skipped %d invalid or duplicate routes", summary.skipped)
+    if not summary.playable:
+        log.error("no playable airports")
+        return 1
     args.output.parent.mkdir(parents=True, exist_ok=True)
     args.output.write_text(json.dumps(out, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
-    log.info("wrote %s: %d airports, %d routes", args.output, summary.airports, summary.routes)
+    log.info(
+        "wrote %s: %d airports, %d flights, %d playable (%d left out as ambiguous)",
+        args.output, summary.airports, summary.flights, summary.playable, summary.ambiguous,
+    )
     return 0
 
 
