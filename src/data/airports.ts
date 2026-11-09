@@ -27,7 +27,9 @@ export const airports: Airport[] = (data.airports as AirportRow[]).map(
 const byCode = new Map(airports.map((a) => [a.code, a]));
 
 const destinations: Destination[][] = airports.map(() => []);
+// Only international routes: domestic flights (both ends in one country) are left out.
 for (const [a, b, passengers] of data.routes as RouteRow[]) {
+  if (airports[a].country === airports[b].country) continue;
   destinations[a].push({ airport: airports[b], passengers });
   destinations[b].push({ airport: airports[a], passengers });
 }
@@ -37,12 +39,12 @@ export function findAirport(code: string): Airport | undefined {
   return byCode.get(code.trim().toUpperCase());
 }
 
-/** Airports reachable by a direct flight, busiest route first. */
+/** Foreign airports reachable by a direct flight, busiest route first. */
 export function destinationsFrom(airport: Airport): Destination[] {
   return destinations[airport.index];
 }
 
-/** Airports with enough direct routes to make a fair puzzle. */
+/** Airports with enough international routes to make a fair puzzle. */
 const MIN_DESTINATIONS = 10;
 const playable = airports.filter((a) => destinations[a.index].length >= MIN_DESTINATIONS);
 

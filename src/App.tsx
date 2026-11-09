@@ -59,7 +59,7 @@ export default function App() {
 
       <div className="card game">
         <div className="prompt">
-          Which airport has direct flights to all {destinations.length} blinking destinations?
+          Which airport has direct international flights to all {destinations.length} blinking destinations?
         </div>
 
         {done ? (
