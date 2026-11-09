@@ -18,7 +18,7 @@ interface Props {
   compare: Airport[];
   /** Codes of countries guessed wrong, hatched in red. */
   wrongCountries: string[];
-  /** Airports that could be the answer, marked with a departure emoji once its country is known; else empty. */
+  /** Airports that could be the answer, marked with an airport icon once its country is known; else empty. */
   candidates: Airport[];
 }
 
@@ -55,7 +55,8 @@ const GUESS = 'guess';
 const COUNTRIES = 'countries';
 const HATCH = 'hatch';
 const CANDIDATES = 'candidates';
-const DEPARTURE = 'departure';
+// Not plain 'airport': the basemap's sprite already has an image by that name.
+const AIRPORT = 'daily-map-airport';
 const WRONG_RED = '#dc2626';
 const BASEMAP_STYLE = 'https://tiles.openfreemap.org/styles/liberty';
 const PULSE_MS = 1600;
@@ -140,20 +141,11 @@ function hatchImage(): ImageData {
   return ctx.getImageData(0, 0, size, size);
 }
 
-/** The 🛫 emoji as an image: map label fonts have no emoji, but the browser's canvas does. */
-function departureImage(): ImageData {
-  const size = 96;
-  const ctx = document.createElement('canvas').getContext('2d')!;
-  ctx.canvas.width = ctx.canvas.height = size;
-  ctx.font = `${size * 0.85}px "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", sans-serif`;
-  ctx.textAlign = 'center';
-  ctx.textBaseline = 'middle';
-  ctx.fillText('🛫', size / 2, size / 2 + size / 16);
-  return ctx.getImageData(0, 0, size, size);
-}
-
 /** Images the style asks for by name, drawn on first use. */
-const IMAGES: Record<string, () => ImageData> = { [HATCH]: hatchImage, [DEPARTURE]: departureImage };
+const IMAGES: Record<string, () => ImageData> = { [HATCH]: hatchImage };
+
+/** Image files the style asks for by name, served from public/; all drawn at half their pixel size. */
+const IMAGE_FILES: Record<string, string> = { [AIRPORT]: `${import.meta.env.BASE_URL}icons/airport.png` };
 
 const withRouteLayers: maplibregl.TransformStyleFunction = (_previous, next) => ({
   ...next,
@@ -193,9 +185,9 @@ const withRouteLayers: maplibregl.TransformStyleFunction = (_previous, next) => 
     {
       id: 'candidate-icon', type: 'symbol', source: CANDIDATES,
       layout: {
-        'icon-image': DEPARTURE, 'icon-allow-overlap': true, 'icon-ignore-placement': true,
-        // Image is 48px: 22px on the world view, growing with the map as you zoom in on the country.
-        'icon-size': ['interpolate', ['exponential', 1.5], ['zoom'], 1, 0.45, 4, 0.75, 7, 1.25, 10, 2],
+        'icon-image': AIRPORT, 'icon-allow-overlap': true, 'icon-ignore-placement': true,
+        // Image is 96px: 14px on the world view so a country's icons don't merge, growing as you zoom in.
+        'icon-size': ['interpolate', ['exponential', 1.5], ['zoom'], 1, 0.15, 4, 0.3, 7, 0.6, 10, 1],
       },
     },
     {
@@ -235,9 +227,12 @@ export default function MapView(props: Props) {
     map.setStyle(BASEMAP_STYLE, { transformStyle: withRouteLayers });
     map.addControl(new maplibregl.NavigationControl({ showCompass: false }));
     mapRef.current = map;
-    map.setMissingStyleImageResolver((id) => {
+    map.setMissingStyleImageResolver(async (id) => {
       const draw = IMAGES[id];
-      if (draw && !map.hasImage(id)) map.addImage(id, draw(), { pixelRatio: 2 });
+      const file = IMAGE_FILES[id];
+      if (!draw && !file) return;
+      const image = draw ? draw() : (await map.loadImage(file)).data;
+      if (!map.hasImage(id)) map.addImage(id, image, { pixelRatio: 2 });
     });
 
     const popup = new maplibregl.Popup({ closeButton: false, closeOnClick: false, offset: 10 });
