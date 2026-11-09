@@ -64,9 +64,9 @@ function dots(items: { airport: Airport; r: number; kind?: DotKind }[]): Feature
 }
 
 /**
- * Dots for the answer's destinations, diffed against the guesses treated as one big airport (the union of
- * their routes): the answer's routes the guesses share turn green, those none of them fly stay blue, and the guesses' routes the answer
- * lacks are added in faded grey. Routes between the guesses themselves are dropped, and the answer is
+ * Dots for the answer's destinations, diffed against the ticked guesses: the answer's routes every guess
+ * also flies turn green, the rest stay blue, and routes any guess flies but the answer lacks are added in
+ * faded grey. Routes between the guesses themselves are dropped, and the answer is
  * never drawn, even when a guess flies there, so the diff cannot give it away.
  */
 function routeDots(target: Airport, destinations: Destination[], compare: Airport[]) {
@@ -75,21 +75,24 @@ function routeDots(target: Airport, destinations: Destination[], compare: Airpor
     return dots(destinations.map((d) => ({ airport: d.airport, r: radius(d.passengers), kind: 'missing' as DotKind })));
   }
   const guesses = new Set(compare);
-  const theirs = new Map<Airport, number>();
+  // Per destination: combined passengers and how many of the guesses fly there.
+  const theirs = new Map<Airport, { passengers: number; guesses: number }>();
   for (const g of compare) {
     for (const d of destinationsFrom(g)) {
       if (guesses.has(d.airport)) continue;
-      theirs.set(d.airport, (theirs.get(d.airport) ?? 0) + d.passengers);
+      const seen = theirs.get(d.airport) ?? { passengers: 0, guesses: 0 };
+      theirs.set(d.airport, { passengers: seen.passengers + d.passengers, guesses: seen.guesses + 1 });
     }
   }
+  const allFly = (a: Airport) => theirs.get(a)?.guesses === compare.length;
   const ours = new Set(destinations.map((d) => d.airport));
   return dots([
     ...destinations.map((d) => ({
-      airport: d.airport, r: radius(d.passengers), kind: (theirs.has(d.airport) ? 'shared' : 'missing') as DotKind,
+      airport: d.airport, r: radius(d.passengers), kind: (allFly(d.airport) ? 'shared' : 'missing') as DotKind,
     })),
     ...[...theirs]
       .filter(([a]) => !ours.has(a) && a !== target)
-      .map(([airport, passengers]) => ({ airport, r: radius(passengers), kind: 'extra' as DotKind })),
+      .map(([airport, { passengers }]) => ({ airport, r: radius(passengers), kind: 'extra' as DotKind })),
   ]);
 }
 
