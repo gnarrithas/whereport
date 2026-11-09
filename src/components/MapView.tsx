@@ -1,166 +1,169 @@
 import { useEffect, useRef } from 'react';
 import * as maplibregl from 'maplibre-gl';
-import type { LngLatBoundsLike, Map as MlMap } from 'maplibre-gl';
+import type { GeoJSONSource, Map as MlMap } from 'maplibre-gl';
+import type { FeatureCollection, Point } from 'geojson';
 import workerUrl from 'maplibre-gl/dist/maplibre-gl-worker.mjs?url';
-import { countries, countryFeatures, type CountryId } from '../data/countries';
+import { airports, type Airport, type Destination } from '../data/airports';
 
 // Vite pre-bundling breaks MapLibre's import.meta.url worker lookup; point it at the worker explicitly.
 maplibregl.setWorkerUrl(workerUrl);
 
-export type Highlight = 'pending' | 'correct' | 'wrong' | 'target';
-
 interface Props {
-  interactive: boolean;
-  highlights: Partial<Record<CountryId, Highlight>>;
-  /** Countries to frame when this changes; empty leaves the camera alone. */
-  focus: CountryId[];
-  /** Country to pin with a marker (helps spot tiny countries); null for none. */
-  marker: CountryId | null;
-  onCountryClick: (id: CountryId) => void;
+  origin: Airport | null;
+  destinations: Destination[];
+  onAirportClick: (airport: Airport) => void;
 }
 
-const SOURCE = 'countries';
-const HIGHLIGHT_KEYS: Highlight[] = ['pending', 'correct', 'wrong', 'target'];
+interface DotProps {
+  index: number;
+  /** Base radius in px, scaled by route traffic. */
+  r: number;
+}
 
+const DESTS = 'destinations';
+const ORIGIN = 'origin';
 const BASEMAP_STYLE = 'https://tiles.openfreemap.org/styles/liberty';
-/** Basemap label layers that would give the answer away. */
-const HIDDEN_LAYER = /^label_country_/;
+const PULSE_MS = 1600;
+const PULSE_GROW = 14;
 
-const fillColor = [
-  'case',
-  ['boolean', ['feature-state', 'correct'], false], '#2e9e4f',
-  ['boolean', ['feature-state', 'wrong'], false], '#d64545',
-  ['boolean', ['feature-state', 'target'], false], '#2e9e4f',
-  ['boolean', ['feature-state', 'pending'], false], '#f0b429',
-  '#3b6fd8',
-] as unknown as maplibregl.ExpressionSpecification;
+const empty: FeatureCollection<Point, DotProps> = { type: 'FeatureCollection', features: [] };
 
-// Unhighlighted countries stay fully transparent (still clickable) so the basemap shows through.
-const fillOpacity = [
-  'case',
-  ['any',
-    ['boolean', ['feature-state', 'correct'], false],
-    ['boolean', ['feature-state', 'wrong'], false],
-    ['boolean', ['feature-state', 'target'], false],
-    ['boolean', ['feature-state', 'pending'], false]], 0.5,
-  ['boolean', ['feature-state', 'hover'], false], 0.2,
-  0,
-] as unknown as maplibregl.ExpressionSpecification;
-
-/** Basemap plus the game's country layer, inserted below the labels. */
-const withCountryLayer: maplibregl.TransformStyleFunction = (_previous, next) => {
-  const layers = next.layers.filter((l) => !HIDDEN_LAYER.test(l.id));
-  const firstSymbol = layers.findIndex((l) => l.type === 'symbol');
-  const at = firstSymbol === -1 ? layers.length : firstSymbol;
-  layers.splice(at, 0, {
-    id: 'country-fill', type: 'fill', source: SOURCE,
-    paint: { 'fill-color': fillColor, 'fill-opacity': fillOpacity },
-  });
+function dots(items: { airport: Airport; r: number }[]): FeatureCollection<Point, DotProps> {
   return {
-    ...next,
-    sources: { ...next.sources, [SOURCE]: { type: 'geojson', data: countryFeatures } },
-    layers,
+    type: 'FeatureCollection',
+    features: items.map(({ airport, r }) => ({
+      type: 'Feature',
+      geometry: { type: 'Point', coordinates: airport.lngLat },
+      properties: { index: airport.index, r },
+    })),
   };
-};
+}
 
-export default function MapView({ interactive, highlights, focus, marker, onCountryClick }: Props) {
+/** Busier routes get bigger dots: 3px for the quietest up to 7px. */
+function radius(passengers: number): number {
+  return 3 + Math.min(4, Math.log10(Math.max(passengers, 1)) * 0.6);
+}
+
+const withRouteLayers: maplibregl.TransformStyleFunction = (_previous, next) => ({
+  ...next,
+  sources: {
+    ...next.sources,
+    [DESTS]: { type: 'geojson', data: empty },
+    [ORIGIN]: { type: 'geojson', data: empty },
+  },
+  layers: [
+    ...next.layers,
+    {
+      id: 'dest-pulse', type: 'circle', source: DESTS,
+      paint: { 'circle-color': '#f97316', 'circle-radius': ['get', 'r'], 'circle-opacity': 0 },
+    },
+    {
+      id: 'dest-dot', type: 'circle', source: DESTS,
+      paint: {
+        'circle-color': '#f97316', 'circle-radius': ['get', 'r'],
+        'circle-stroke-color': '#fff', 'circle-stroke-width': 1,
+      },
+    },
+    {
+      id: 'origin-dot', type: 'circle', source: ORIGIN,
+      paint: {
+        'circle-color': '#2563eb', 'circle-radius': 8,
+        'circle-stroke-color': '#fff', 'circle-stroke-width': 2,
+      },
+    },
+  ],
+});
+
+export default function MapView({ origin, destinations, onAirportClick }: Props) {
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<MlMap | null>(null);
   const loadedRef = useRef(false);
-  const interactiveRef = useRef(interactive);
-  const clickRef = useRef(onCountryClick);
-  const appliedRef = useRef<Partial<Record<CountryId, Highlight>>>({});
+  const clickRef = useRef(onAirportClick);
+  const latest = useRef({ origin, destinations });
 
-  interactiveRef.current = interactive;
-  clickRef.current = onCountryClick;
+  clickRef.current = onAirportClick;
+  latest.current = { origin, destinations };
 
   useEffect(() => {
     const map = new maplibregl.Map({
       container: containerRef.current!,
       center: [15, 30],
       zoom: 1.6,
-      renderWorldCopies: false,
     });
-    map.setStyle(BASEMAP_STYLE, { transformStyle: withCountryLayer });
+    map.setStyle(BASEMAP_STYLE, { transformStyle: withRouteLayers });
     map.addControl(new maplibregl.NavigationControl({ showCompass: false }));
     mapRef.current = map;
 
-    let hovered: CountryId | null = null;
-    const setHover = (id: CountryId | null) => {
-      if (hovered !== null) map.setFeatureState({ source: SOURCE, id: hovered }, { hover: false });
-      hovered = id;
-      if (id !== null) map.setFeatureState({ source: SOURCE, id }, { hover: true });
-      map.getCanvas().style.cursor = id !== null ? 'pointer' : '';
+    const popup = new maplibregl.Popup({ closeButton: false, closeOnClick: false, offset: 10 });
+    map.on('mousemove', 'dest-dot', (e) => {
+      const index = e.features?.[0]?.properties?.index;
+      if (typeof index !== 'number') return;
+      const a = airports[index];
+      map.getCanvas().style.cursor = 'pointer';
+      popup.setLngLat(a.lngLat).setText(`${a.code} · ${a.city || a.name}`).addTo(map);
+    });
+    map.on('mouseleave', 'dest-dot', () => {
+      map.getCanvas().style.cursor = '';
+      popup.remove();
+    });
+    map.on('click', 'dest-dot', (e) => {
+      const index = e.features?.[0]?.properties?.index;
+      if (typeof index === 'number') {
+        popup.remove();
+        clickRef.current(airports[index]);
+      }
+    });
+
+    let frame = 0;
+    const pulse = (now: number) => {
+      const t = (now % PULSE_MS) / PULSE_MS;
+      if (map.getLayer('dest-pulse')) {
+        map.setPaintProperty('dest-pulse', 'circle-radius', ['+', ['get', 'r'], t * PULSE_GROW]);
+        map.setPaintProperty('dest-pulse', 'circle-opacity', 0.5 * (1 - t));
+      }
+      frame = requestAnimationFrame(pulse);
     };
 
-    map.on('mousemove', 'country-fill', (e) => {
-      if (!interactiveRef.current) return setHover(null);
-      const id = e.features?.[0]?.id;
-      setHover(typeof id === 'number' ? id : null);
-    });
-    map.on('mouseleave', 'country-fill', () => setHover(null));
-    map.on('click', 'country-fill', (e) => {
-      const id = e.features?.[0]?.id;
-      if (interactiveRef.current && typeof id === 'number') clickRef.current(id);
-    });
     map.on('load', () => {
       loadedRef.current = true;
-      applyHighlights(map, appliedRef, latestHighlights.current);
+      render(map, latest.current.origin, latest.current.destinations);
+      frame = requestAnimationFrame(pulse);
     });
 
     return () => {
+      cancelAnimationFrame(frame);
       loadedRef.current = false;
-      appliedRef.current = {};
       map.remove();
       mapRef.current = null;
     };
   }, []);
 
-  const latestHighlights = useRef(highlights);
-  latestHighlights.current = highlights;
-
   useEffect(() => {
     const map = mapRef.current;
-    if (map && loadedRef.current) applyHighlights(map, appliedRef, highlights);
-    if (!interactive && map && loadedRef.current) {
-      map.getCanvas().style.cursor = '';
-    }
-  }, [highlights, interactive]);
-
-  const focusKey = focus.join(',');
-  useEffect(() => {
-    const map = mapRef.current;
-    if (!map || focus.length === 0) return;
-    const [w, s, e, n] = focus
-      .map((id) => countries[id].bbox)
-      .reduce((a, b) => [Math.min(a[0], b[0]), Math.min(a[1], b[1]), Math.max(a[2], b[2]), Math.max(a[3], b[3])]);
-    const bounds: LngLatBoundsLike = [[w, Math.max(s, -80)], [e, Math.min(n, 85)]];
-    map.fitBounds(bounds, { padding: 120, maxZoom: 5, duration: 1200 });
-  }, [focusKey]);
-
-  useEffect(() => {
-    const map = mapRef.current;
-    if (!map || marker === null) return;
-    const m = new maplibregl.Marker({ color: '#2e9e4f' }).setLngLat(countries[marker].anchor).addTo(map);
-    return () => {
-      m.remove();
-    };
-  }, [marker]);
+    if (!map || !loadedRef.current) return;
+    render(map, origin, destinations);
+  }, [origin, destinations]);
 
   return <div ref={containerRef} className="map" />;
 }
 
-function applyHighlights(
-  map: MlMap,
-  appliedRef: React.MutableRefObject<Partial<Record<CountryId, Highlight>>>,
-  next: Partial<Record<CountryId, Highlight>>,
-) {
-  const cleared = Object.fromEntries(HIGHLIGHT_KEYS.map((k) => [k, false]));
-  for (const id of Object.keys(appliedRef.current)) {
-    map.setFeatureState({ source: SOURCE, id: Number(id) }, cleared);
+function render(map: MlMap, origin: Airport | null, destinations: Destination[]) {
+  (map.getSource(DESTS) as GeoJSONSource).setData(
+    dots(destinations.map((d) => ({ airport: d.airport, r: radius(d.passengers) }))),
+  );
+  (map.getSource(ORIGIN) as GeoJSONSource).setData(origin ? dots([{ airport: origin, r: 8 }]) : empty);
+  if (origin) frame(map, origin, destinations);
+}
+
+/** Fit the origin and its destinations, taking the short way across the antimeridian. */
+function frame(map: MlMap, origin: Airport, destinations: Destination[]) {
+  const [ox, oy] = origin.lngLat;
+  let w = ox, e = ox, s = oy, n = oy;
+  for (const { airport } of destinations) {
+    const [x, y] = airport.lngLat;
+    const ux = ox + ((((x - ox) % 360) + 540) % 360) - 180;
+    w = Math.min(w, ux); e = Math.max(e, ux);
+    s = Math.min(s, y); n = Math.max(n, y);
   }
-  for (const [id, kind] of Object.entries(next)) {
-    if (kind) map.setFeatureState({ source: SOURCE, id: Number(id) }, { [kind]: true });
-  }
-  appliedRef.current = { ...next };
+  map.fitBounds([[w, Math.max(s, -80)], [e, Math.min(n, 85)]], { padding: 80, maxZoom: 7, duration: 1200 });
 }
