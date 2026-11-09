@@ -257,9 +257,9 @@ export default function App() {
           ) : feedback?.kind === 'revealed' ? (
             <span>The answer was {label(target)}.</span>
           ) : feedback?.kind === 'wrong' ? (
-            <span className="bad">Wrong — it's not {label(feedback.guess)}. Try again.</span>
+            <span className="bad">It's not {feedback.guess.name} (<strong>{feedback.guess.code}</strong>).</span>
           ) : feedback?.kind === 'wrong-country' ? (
-            <span className="bad">Wrong — it's not in {feedback.guess.name}. Try again.</span>
+            <span className="bad">It's not in <strong>{feedback.guess.name}</strong>.</span>
           ) : feedback?.kind === 'right-country' ? (
             <span className="good">Correct, it's in {targetCountry}! Now pick the airport.</span>
           ) : mode === 'country' ? (
