@@ -185,10 +185,9 @@ export default function App() {
             const one = diff.length === 1;
             return (
               <div className="legend" aria-label="Map legend">
-                <div className="legend-title">Diff: {one ? 'your guess' : 'your guesses'} {them} vs. the {done ? `answer ${target.code}` : answer}</div>
                 <div><span className="swatch" style={{ background: DOT_COLORS.shared }} /> Both sides fly here</div>
-                <div><span className="swatch" style={{ background: DOT_COLORS.missing }} /> Only the {answer} flies here — {one ? `${them} doesn't` : 'none of the guesses do'}</div>
-                <div><span className="swatch faded" style={{ background: DOT_COLORS.extra }} /> Only {one ? them : 'the guesses'} {one ? 'flies' : 'fly'} here — the {answer} doesn't</div>
+                <div><span className="swatch" style={{ background: DOT_COLORS.missing }} /> Only the {answer} flies here</div>
+                <div><span className="swatch faded" style={{ background: DOT_COLORS.extra }} /> Only {one ? them : 'the guesses'} {one ? 'flies' : 'fly'} here</div>
                 <div><span className="swatch ring" /> {one ? 'Your guess' : 'Your guesses'}</div>
               </div>
             );

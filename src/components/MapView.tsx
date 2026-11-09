@@ -29,8 +29,8 @@ interface DotProps {
 }
 
 export const DOT_COLORS: Record<DotKind, string> = {
-  shared: '#2563eb',
-  missing: '#16a34a',
+  shared: '#16a34a',
+  missing: '#2563eb',
   extra: '#9ca3af',
 };
 
@@ -38,9 +38,9 @@ const EXTRA_OPACITY = 0.55;
 
 const dotColor: maplibregl.ExpressionSpecification = [
   'match', ['get', 'kind'],
-  'missing', DOT_COLORS.missing,
+  'shared', DOT_COLORS.shared,
   'extra', DOT_COLORS.extra,
-  DOT_COLORS.shared,
+  DOT_COLORS.missing,
 ];
 
 const DESTS = 'destinations';
@@ -65,12 +65,15 @@ function dots(items: { airport: Airport; r: number; kind?: DotKind }[]): Feature
 
 /**
  * Dots for the answer's destinations, diffed against the guesses treated as one big airport (the union of
- * their routes): the answer's routes none of the guesses fly turn green, and the guesses' routes the answer
+ * their routes): the answer's routes the guesses share turn green, those none of them fly stay blue, and the guesses' routes the answer
  * lacks are added in faded grey. Routes between the guesses themselves are dropped, and the answer is
  * never drawn, even when a guess flies there, so the diff cannot give it away.
  */
 function routeDots(target: Airport, destinations: Destination[], compare: Airport[]) {
-  if (!compare.length) return dots(destinations.map((d) => ({ airport: d.airport, r: radius(d.passengers) })));
+  // With nothing to compare, every route is the answer's alone.
+  if (!compare.length) {
+    return dots(destinations.map((d) => ({ airport: d.airport, r: radius(d.passengers), kind: 'missing' as DotKind })));
+  }
   const guesses = new Set(compare);
   const theirs = new Map<Airport, number>();
   for (const g of compare) {
