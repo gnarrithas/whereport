@@ -104,7 +104,7 @@ export default function App() {
   const [mode, setMode] = useState<Mode>('airport');
   const [countryKnown, setCountryKnown] = useState(false);
   const [wrongGuesses, setWrongGuesses] = useState<Airport[]>([]);
-  const [diff, setDiff] = useState<Airport | null>(null);
+  const [diff, setDiff] = useState<Airport[]>([]);
 
   const destinations = useMemo(() => destinationsFrom(target), [target]);
   const airportMatches = useMemo(
@@ -125,13 +125,16 @@ export default function App() {
     setAttempts((n) => n + 1);
     if (airport === target) {
       setFeedback({ kind: 'correct' });
-      setDiff(null);
+      setDiff([]);
       return;
     }
     setFeedback({ kind: 'wrong', guess: airport });
     setWrongGuesses((list) => (list.includes(airport) ? list : [...list, airport]));
-    setDiff(airport);
+    setDiff([airport]);
   };
+
+  const toggleDiff = (airport: Airport) =>
+    setDiff((list) => (list.includes(airport) ? list.filter((a) => a !== airport) : [...list, airport]));
 
   const guessCountry = (country: Country) => {
     setQuery('');
@@ -153,7 +156,7 @@ export default function App() {
     setMode('airport');
     setCountryKnown(false);
     setWrongGuesses([]);
-    setDiff(null);
+    setDiff([]);
   };
 
   return (
@@ -163,31 +166,33 @@ export default function App() {
       {wrongGuesses.length > 0 && (
         <div className="card diff-panel">
           <div className="diff-heading">Compare routes with your guesses</div>
-          <div className="diff-sub">Click a wrong guess to diff its routes against the mystery airport.</div>
+          <div className="diff-sub">Tick wrong guesses to diff their combined routes against the mystery airport.</div>
           <ul className="diff-list">
             {wrongGuesses.map((a) => (
               <li key={a.code}>
-                <button
-                  className={a === diff ? 'selected' : undefined}
-                  aria-pressed={a === diff}
-                  onClick={() => setDiff(a === diff ? null : a)}
-                >
+                <label>
+                  <input type="checkbox" checked={diff.includes(a)} onChange={() => toggleDiff(a)} />
                   <strong>{a.code}</strong> {a.city || a.name}
-                </button>
+                </label>
               </li>
             ))}
           </ul>
-          <button className="clear" onClick={() => setDiff(null)} disabled={!diff}>Clear diff</button>
+          <button className="clear" onClick={() => setDiff([])} disabled={!diff.length}>Clear all</button>
 
-          {diff && (
-            <div className="legend" aria-label="Map legend">
-              <div className="legend-title">Diff: your guess {diff.code} vs. the {done ? `answer ${target.code}` : 'mystery airport'}</div>
-              <div><span className="swatch" style={{ background: DOT_COLORS.shared }} /> Both airports fly here</div>
-              <div><span className="swatch" style={{ background: DOT_COLORS.missing }} /> Only the {done ? 'answer' : 'mystery airport'} flies here — {diff.code} doesn't</div>
-              <div><span className="swatch" style={{ background: DOT_COLORS.extra }} /> Only {diff.code} flies here — the {done ? 'answer' : 'mystery airport'} doesn't</div>
-              <div><span className="swatch ring" /> Your guess, {diff.code}</div>
-            </div>
-          )}
+          {diff.length > 0 && (() => {
+            const them = diff.map((a) => a.code).join(' + ');
+            const answer = done ? 'answer' : 'mystery airport';
+            const one = diff.length === 1;
+            return (
+              <div className="legend" aria-label="Map legend">
+                <div className="legend-title">Diff: {one ? 'your guess' : 'your guesses'} {them} vs. the {done ? `answer ${target.code}` : answer}</div>
+                <div><span className="swatch" style={{ background: DOT_COLORS.shared }} /> Both sides fly here</div>
+                <div><span className="swatch" style={{ background: DOT_COLORS.missing }} /> Only the {answer} flies here — {one ? `${them} doesn't` : 'none of the guesses do'}</div>
+                <div><span className="swatch faded" style={{ background: DOT_COLORS.extra }} /> Only {one ? them : 'the guesses'} {one ? 'flies' : 'fly'} here — the {answer} doesn't</div>
+                <div><span className="swatch ring" /> {one ? 'Your guess' : 'Your guesses'}</div>
+              </div>
+            );
+          })()}
         </div>
       )}
 

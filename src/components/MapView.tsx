@@ -14,11 +14,11 @@ interface Props {
   /** The puzzle's answer, always known to the map so a diff never draws it. */
   answer: Airport;
   destinations: Destination[];
-  /** A wrong guess to diff against the answer's routes, or null for no diff. */
-  compare: Airport | null;
+  /** Wrong guesses whose combined routes are diffed against the answer's; empty for no diff. */
+  compare: Airport[];
 }
 
-/** How a dot relates to the diff: flown by both airports, only by the answer, or only by the guess. */
+/** How a dot relates to the diff: flown by both sides, only by the answer, or only by the guesses. */
 export type DotKind = 'shared' | 'missing' | 'extra';
 
 interface DotProps {
@@ -29,10 +29,12 @@ interface DotProps {
 }
 
 export const DOT_COLORS: Record<DotKind, string> = {
-  shared: '#f97316',
-  missing: '#dc2626',
-  extra: '#16a34a',
+  shared: '#2563eb',
+  missing: '#16a34a',
+  extra: '#9ca3af',
 };
+
+const EXTRA_OPACITY = 0.55;
 
 const dotColor: maplibregl.ExpressionSpecification = [
   'match', ['get', 'kind'],
@@ -62,22 +64,29 @@ function dots(items: { airport: Airport; r: number; kind?: DotKind }[]): Feature
 }
 
 /**
- * Dots for the answer's destinations, diffed against a guess when given: the answer's routes the guess
- * lacks turn red, and the guess's routes the answer lacks are added in green. The answer itself is never
- * drawn, even when the guess flies there, so the diff cannot give it away.
+ * Dots for the answer's destinations, diffed against the guesses treated as one big airport (the union of
+ * their routes): the answer's routes none of the guesses fly turn green, and the guesses' routes the answer
+ * lacks are added in faded grey. Routes between the guesses themselves are dropped, and the answer is
+ * never drawn, even when a guess flies there, so the diff cannot give it away.
  */
-function routeDots(target: Airport, destinations: Destination[], compare: Airport | null) {
-  if (!compare) return dots(destinations.map((d) => ({ airport: d.airport, r: radius(d.passengers) })));
-  const theirs = destinationsFrom(compare);
+function routeDots(target: Airport, destinations: Destination[], compare: Airport[]) {
+  if (!compare.length) return dots(destinations.map((d) => ({ airport: d.airport, r: radius(d.passengers) })));
+  const guesses = new Set(compare);
+  const theirs = new Map<Airport, number>();
+  for (const g of compare) {
+    for (const d of destinationsFrom(g)) {
+      if (guesses.has(d.airport)) continue;
+      theirs.set(d.airport, (theirs.get(d.airport) ?? 0) + d.passengers);
+    }
+  }
   const ours = new Set(destinations.map((d) => d.airport));
-  const shared = new Set(theirs.map((d) => d.airport));
   return dots([
     ...destinations.map((d) => ({
-      airport: d.airport, r: radius(d.passengers), kind: (shared.has(d.airport) ? 'shared' : 'missing') as DotKind,
+      airport: d.airport, r: radius(d.passengers), kind: (theirs.has(d.airport) ? 'shared' : 'missing') as DotKind,
     })),
-    ...theirs
-      .filter((d) => !ours.has(d.airport) && d.airport !== target)
-      .map((d) => ({ airport: d.airport, r: radius(d.passengers), kind: 'extra' as DotKind })),
+    ...[...theirs]
+      .filter(([a]) => !ours.has(a) && a !== target)
+      .map(([airport, passengers]) => ({ airport, r: radius(passengers), kind: 'extra' as DotKind })),
   ]);
 }
 
@@ -98,13 +107,16 @@ const withRouteLayers: maplibregl.TransformStyleFunction = (_previous, next) => 
     ...next.layers,
     {
       id: 'dest-pulse', type: 'circle', source: DESTS,
+      filter: ['!=', ['get', 'kind'], 'extra'],
       paint: { 'circle-color': dotColor, 'circle-radius': ['get', 'r'], 'circle-opacity': 0 },
     },
     {
       id: 'dest-dot', type: 'circle', source: DESTS,
       paint: {
         'circle-color': dotColor, 'circle-radius': ['get', 'r'],
+        'circle-opacity': ['match', ['get', 'kind'], 'extra', EXTRA_OPACITY, 1],
         'circle-stroke-color': '#fff', 'circle-stroke-width': 1,
+        'circle-stroke-opacity': ['match', ['get', 'kind'], 'extra', EXTRA_OPACITY, 1],
       },
     },
     {
@@ -117,7 +129,7 @@ const withRouteLayers: maplibregl.TransformStyleFunction = (_previous, next) => 
     {
       id: 'origin-dot', type: 'circle', source: ORIGIN,
       paint: {
-        'circle-color': '#2563eb', 'circle-radius': 8,
+        'circle-color': '#dc2626', 'circle-radius': 8,
         'circle-stroke-color': '#fff', 'circle-stroke-width': 2,
       },
     },
@@ -196,11 +208,11 @@ export default function MapView({ origin, answer, destinations, compare }: Props
 }
 
 function render(
-  map: MlMap, origin: Airport | null, answer: Airport, destinations: Destination[], compare: Airport | null,
+  map: MlMap, origin: Airport | null, answer: Airport, destinations: Destination[], compare: Airport[],
 ) {
   (map.getSource(DESTS) as GeoJSONSource).setData(routeDots(answer, destinations, compare));
   (map.getSource(ORIGIN) as GeoJSONSource).setData(origin ? dots([{ airport: origin, r: 8 }]) : empty);
-  (map.getSource(GUESS) as GeoJSONSource).setData(compare ? dots([{ airport: compare, r: 7 }]) : empty);
+  (map.getSource(GUESS) as GeoJSONSource).setData(dots(compare.map((airport) => ({ airport, r: 7 }))));
 }
 
 /** Show the whole world, whatever the airport. */

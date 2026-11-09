@@ -73,9 +73,9 @@ button.primary:hover { background: #1d4ed8; }
 }
 .diff-heading { font-weight: 600; }
 .diff-sub { font-size: 0.85rem; color: #555; }
-.diff-list { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 6px; }
-.diff-list button { padding: 4px 10px; font-size: 0.88rem; }
-.diff-list button.selected { background: #111827; border-color: #111827; color: #fff; }
+.diff-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; }
+.diff-list label { display: flex; align-items: center; gap: 6px; font-size: 0.88rem; cursor: pointer; }
+.diff-list input { margin: 0; cursor: pointer; }
 .clear { align-self: flex-start; padding: 4px 12px; font-size: 0.88rem; }
 .clear:disabled { cursor: default; opacity: 0.5; }
 .legend { display: flex; flex-direction: column; gap: 4px; font-size: 0.88rem; border-top: 1px solid #e3e6eb; padding-top: 8px; }
@@ -84,4 +84,5 @@ button.primary:hover { background: #1d4ed8; }
   display: inline-block; width: 12px; height: 12px; border-radius: 50%;
   margin-right: 6px; vertical-align: -1px; border: 1px solid #fff; box-shadow: 0 0 0 1px #c8cdd6;
 }
+.swatch.faded { opacity: 0.55; }
 .swatch.ring { background: #fff; border: 3px solid #111827; box-shadow: none; width: 8px; height: 8px; }
