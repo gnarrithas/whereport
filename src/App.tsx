@@ -1,10 +1,10 @@
 import { useMemo, useState, type KeyboardEvent, type ReactNode } from 'react';
 import MapView, { DOT_COLORS } from './components/MapView';
 import {
-  airports,
   countryName,
   datasetDate,
   destinationsFrom,
+  playableIn,
   randomAirport,
   searchAirports,
   searchCountries,
@@ -114,7 +114,7 @@ export default function App() {
     [query, countryKnown, target],
   );
   const candidates = useMemo(
-    () => (countryKnown ? airports.filter((a) => a.country === target.country) : []),
+    () => (countryKnown ? playableIn(target.country) : []),
     [countryKnown, target],
   );
   const countryMatches = useMemo(() => searchCountries(query), [query]);

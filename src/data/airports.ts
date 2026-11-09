@@ -47,6 +47,11 @@ const unique: Airport[] = (data.unique as number[]).map((index) => airports[inde
 const MIN_DESTINATIONS = 4;
 const playable = unique.filter((a) => destinations[a.index].length >= MIN_DESTINATIONS);
 
+/** Airports in a country that could be a puzzle's answer. */
+export function playableIn(country: string): Airport[] {
+  return playable.filter((a) => a.country === country);
+}
+
 export function randomAirport(exclude?: Airport): Airport {
   const pool = exclude ? playable.filter((a) => a !== exclude) : playable;
   return pool[Math.floor(Math.random() * pool.length)];

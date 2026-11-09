@@ -18,7 +18,7 @@ interface Props {
   compare: Airport[];
   /** Codes of countries guessed wrong, hatched in red. */
   wrongCountries: string[];
-  /** Airports the answer may be, marked with a departure emoji once its country is known; else empty. */
+  /** Airports that could be the answer, marked with a departure emoji once its country is known; else empty. */
   candidates: Airport[];
 }
 
@@ -142,13 +142,13 @@ function hatchImage(): ImageData {
 
 /** The 🛫 emoji as an image: map label fonts have no emoji, but the browser's canvas does. */
 function departureImage(): ImageData {
-  const size = 32;
+  const size = 96;
   const ctx = document.createElement('canvas').getContext('2d')!;
   ctx.canvas.width = ctx.canvas.height = size;
-  ctx.font = `${size * 0.8}px "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", sans-serif`;
+  ctx.font = `${size * 0.85}px "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", sans-serif`;
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
-  ctx.fillText('🛫', size / 2, size / 2 + 1);
+  ctx.fillText('🛫', size / 2, size / 2 + size / 16);
   return ctx.getImageData(0, 0, size, size);
 }
 
@@ -192,7 +192,11 @@ const withRouteLayers: maplibregl.TransformStyleFunction = (_previous, next) => 
     },
     {
       id: 'candidate-icon', type: 'symbol', source: CANDIDATES,
-      layout: { 'icon-image': DEPARTURE, 'icon-allow-overlap': true, 'icon-ignore-placement': true },
+      layout: {
+        'icon-image': DEPARTURE, 'icon-allow-overlap': true, 'icon-ignore-placement': true,
+        // Image is 48px: 22px on the world view, growing with the map as you zoom in on the country.
+        'icon-size': ['interpolate', ['exponential', 1.5], ['zoom'], 1, 0.45, 4, 0.75, 7, 1.25, 10, 2],
+      },
     },
     {
       id: 'guess-dot', type: 'circle', source: GUESS,
