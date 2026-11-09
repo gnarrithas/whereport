@@ -165,8 +165,7 @@ export default function App() {
 
       {wrongGuesses.length > 0 && (
         <div className="card diff-panel">
-          <div className="diff-heading">Compare routes with your guesses</div>
-          <div className="diff-sub">Tick wrong guesses to diff their combined routes against the mystery airport.</div>
+          <div className="diff-heading">Compare with your guesses</div>
           <ul className="diff-list">
             {wrongGuesses.map((a) => (
               <li key={a.code}>
@@ -179,13 +178,14 @@ export default function App() {
           </ul>
           <button className="clear" onClick={() => setDiff([])} disabled={!diff.length}>Clear all</button>
 
-          {diff.length > 0 && (() => {
+          {(() => {
             const them = diff.map((a) => a.code).join(' + ');
             const answer = done ? 'answer' : 'mystery airport';
-            const one = diff.length === 1;
+            const one = diff.length <= 1;
+            // Always rendered, just hidden when nothing is ticked, so the panel keeps its height.
             return (
-              <div className="legend" aria-label="Map legend">
-                <div><span className="swatch" style={{ background: DOT_COLORS.shared }} /> Both sides fly here</div>
+              <div className={diff.length ? 'legend' : 'legend empty'} aria-label="Map legend" aria-hidden={!diff.length}>
+                <div><span className="swatch" style={{ background: DOT_COLORS.shared }} /> {one ? 'They both' : 'They all'} fly here</div>
                 <div><span className="swatch" style={{ background: DOT_COLORS.missing }} /> Only the {answer} flies here</div>
                 <div><span className="swatch faded" style={{ background: DOT_COLORS.extra }} /> Only {one ? them : 'the guesses'} {one ? 'flies' : 'fly'} here</div>
                 <div><span className="swatch ring" /> {one ? 'Your guess' : 'Your guesses'}</div>
@@ -197,7 +197,7 @@ export default function App() {
 
       <div className="card game">
         <div className="prompt">
-          Which airport has direct international flights to all {destinations.length} blinking destinations?
+          Which airport has direct international flights to all {destinations.length} destinations?
         </div>
 
         {countryKnown && !done && (
