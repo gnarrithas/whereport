@@ -19,6 +19,8 @@ interface Props {
   compare: Airport[];
   /** Codes of countries guessed wrong, hatched in red. */
   wrongCountries: string[];
+  /** A possible-answer icon was clicked. */
+  onCandidateClick: (airport: Airport) => void;
   /** The player found the answer: its dot turns gold and fireworks go off above it. */
   won: boolean;
   /** Airports that could be the answer, marked with an airport icon once its country is known; else empty. */
@@ -251,6 +253,12 @@ export default function MapView(props: Props) {
       });
       map.on('mouseleave', layer, () => popup.remove());
     }
+    map.on('click', 'candidate-icon', (e) => {
+      const index = e.features?.[0]?.properties?.index;
+      if (typeof index === 'number') latest.current.onCandidateClick(airports[index]);
+    });
+    map.on('mouseenter', 'candidate-icon', () => { map.getCanvas().style.cursor = 'pointer'; });
+    map.on('mouseleave', 'candidate-icon', () => { map.getCanvas().style.cursor = ''; });
 
     let frame = 0;
     const pulse = (now: number) => {

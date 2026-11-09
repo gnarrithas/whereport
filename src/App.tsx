@@ -1,4 +1,4 @@
-import { useMemo, useState, type KeyboardEvent, type ReactNode } from 'react';
+import { useMemo, useRef, useState, type KeyboardEvent, type ReactNode, type Ref } from 'react';
 import MapView, { DOT_COLORS } from './components/MapView';
 import {
   countryName,
@@ -33,9 +33,14 @@ interface ComboProps<T> {
   render: (item: T) => ReactNode;
   placeholder: string;
   ariaLabel: string;
+  /** Enter with no dropdown choice to make, e.g. to send an airport filled in from the map. */
+  onSubmit?: () => void;
+  inputRef?: Ref<HTMLInputElement>;
 }
 
-function Combo<T>({ matches, query, onQuery, onPick, keyOf, render, placeholder, ariaLabel }: ComboProps<T>) {
+function Combo<T>({
+  matches, query, onQuery, onPick, keyOf, render, placeholder, ariaLabel, onSubmit, inputRef,
+}: ComboProps<T>) {
   const [open, setOpen] = useState(false);
   const [active, setActive] = useState(0);
 
@@ -45,6 +50,11 @@ function Combo<T>({ matches, query, onQuery, onPick, keyOf, render, placeholder,
   };
 
   const onKeyDown = (e: KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter' && !(open && matches.length) && onSubmit) {
+      e.preventDefault();
+      onSubmit();
+      return;
+    }
     if (!matches.length) return;
     if (e.key === 'ArrowDown') {
       e.preventDefault();
@@ -64,6 +74,7 @@ function Combo<T>({ matches, query, onQuery, onPick, keyOf, render, placeholder,
   return (
     <div className="combo">
       <input
+        ref={inputRef}
         value={query}
         onChange={(e) => { onQuery(e.target.value); setActive(0); setOpen(true); }}
         onKeyDown={onKeyDown}
@@ -107,6 +118,9 @@ export default function App() {
   const [wrongGuesses, setWrongGuesses] = useState<Airport[]>([]);
   const [wrongCountries, setWrongCountries] = useState<string[]>([]);
   const [diff, setDiff] = useState<Airport[]>([]);
+  /** An airport clicked on the map, filled into the answer bar and waiting for Enter or Guess. */
+  const [pending, setPending] = useState<Airport | null>(null);
+  const answerRef = useRef<HTMLInputElement>(null);
 
   const destinations = useMemo(() => destinationsFrom(target), [target]);
   // Once the country is known, the map marks and the dropdown offers only the airports that could be the answer.
@@ -129,6 +143,7 @@ export default function App() {
 
   const guessAirport = (airport: Airport) => {
     setQuery('');
+    setPending(null);
     setAttempts((n) => n + 1);
     if (airport === target) {
       setFeedback({ kind: 'correct' });
@@ -138,6 +153,19 @@ export default function App() {
     setFeedback({ kind: 'wrong', guess: airport });
     setWrongGuesses((list) => (list.includes(airport) ? list : [...list, airport]));
     setDiff([airport]);
+  };
+
+  const fillFromMap = (airport: Airport) => {
+    if (done) return;
+    setMode('airport');
+    setQuery(label(airport));
+    setPending(airport);
+    answerRef.current?.focus();
+  };
+
+  const typeAirport = (q: string) => {
+    setQuery(q);
+    setPending(null);
   };
 
   const toggleDiff = (airport: Airport) =>
@@ -164,6 +192,7 @@ export default function App() {
     setMode('airport');
     setCountryKnown(false);
     setWrongGuesses([]);
+    setPending(null);
     setWrongCountries([]);
     setDiff([]);
   };
@@ -178,6 +207,7 @@ export default function App() {
         wrongCountries={wrongCountries}
         candidates={candidates}
         won={feedback?.kind === 'correct'}
+        onCandidateClick={fillFromMap}
       />
 
       {wrongGuesses.length > 0 && (
@@ -248,13 +278,20 @@ export default function App() {
                 key="airport"
                 matches={airportMatches}
                 query={query}
-                onQuery={setQuery}
+                onQuery={typeAirport}
                 onPick={guessAirport}
+                onSubmit={() => pending && guessAirport(pending)}
+                inputRef={answerRef}
                 keyOf={(a) => a.code}
                 render={(a) => <><strong>{a.city || a.name}</strong> {a.name} <span className="code">{a.code}</span></>}
                 placeholder={countryKnown ? `Type an airport in ${targetCountry}` : 'Type a city, airport name or code'}
                 ariaLabel="Your airport guess"
               />
+            )}
+            {countryKnown && (
+              <button className="primary" disabled={!pending} onClick={() => pending && guessAirport(pending)}>
+                Guess
+              </button>
             )}
             {!countryKnown && (
               mode === 'country'

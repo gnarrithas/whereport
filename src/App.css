@@ -36,6 +36,7 @@ button {
 button:hover { background: #f2f4f7; }
 button.primary { background: #2563eb; border-color: #2563eb; color: #fff; }
 button.primary:hover { background: #1d4ed8; }
+button.primary:disabled { opacity: 0.5; cursor: default; }
 
 .game {
   position: absolute; top: 16px; left: 50%; transform: translateX(-50%);
