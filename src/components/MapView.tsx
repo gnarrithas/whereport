@@ -18,6 +18,8 @@ interface Props {
   compare: Airport[];
   /** Codes of countries guessed wrong, hatched in red. */
   wrongCountries: string[];
+  /** Airports the answer may be, marked with a departure emoji once its country is known; else empty. */
+  candidates: Airport[];
 }
 
 /** How a dot relates to the diff: flown by both sides, only by the answer, or only by the guesses. */
@@ -52,6 +54,8 @@ const ORIGIN = 'origin';
 const GUESS = 'guess';
 const COUNTRIES = 'countries';
 const HATCH = 'hatch';
+const CANDIDATES = 'candidates';
+const DEPARTURE = 'departure';
 const WRONG_RED = '#dc2626';
 const BASEMAP_STYLE = 'https://tiles.openfreemap.org/styles/liberty';
 const PULSE_MS = 1600;
@@ -136,6 +140,21 @@ function hatchImage(): ImageData {
   return ctx.getImageData(0, 0, size, size);
 }
 
+/** The 🛫 emoji as an image: map label fonts have no emoji, but the browser's canvas does. */
+function departureImage(): ImageData {
+  const size = 32;
+  const ctx = document.createElement('canvas').getContext('2d')!;
+  ctx.canvas.width = ctx.canvas.height = size;
+  ctx.font = `${size * 0.8}px "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", sans-serif`;
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText('🛫', size / 2, size / 2 + 1);
+  return ctx.getImageData(0, 0, size, size);
+}
+
+/** Images the style asks for by name, drawn on first use. */
+const IMAGES: Record<string, () => ImageData> = { [HATCH]: hatchImage, [DEPARTURE]: departureImage };
+
 const withRouteLayers: maplibregl.TransformStyleFunction = (_previous, next) => ({
   ...next,
   sources: {
@@ -145,6 +164,7 @@ const withRouteLayers: maplibregl.TransformStyleFunction = (_previous, next) => 
     [DESTS]: { type: 'geojson', data: empty },
     [ORIGIN]: { type: 'geojson', data: empty },
     [GUESS]: { type: 'geojson', data: empty },
+    [CANDIDATES]: { type: 'geojson', data: empty },
   },
   layers: [
     ...next.layers,
@@ -169,6 +189,10 @@ const withRouteLayers: maplibregl.TransformStyleFunction = (_previous, next) => 
         'circle-stroke-color': '#fff', 'circle-stroke-width': 1,
         'circle-stroke-opacity': ['match', ['get', 'kind'], 'extra', EXTRA_OPACITY, 1],
       },
+    },
+    {
+      id: 'candidate-icon', type: 'symbol', source: CANDIDATES,
+      layout: { 'icon-image': DEPARTURE, 'icon-allow-overlap': true, 'icon-ignore-placement': true },
     },
     {
       id: 'guess-dot', type: 'circle', source: GUESS,
@@ -207,12 +231,13 @@ export default function MapView(props: Props) {
     map.setStyle(BASEMAP_STYLE, { transformStyle: withRouteLayers });
     map.addControl(new maplibregl.NavigationControl({ showCompass: false }));
     mapRef.current = map;
-    map.on('styleimagemissing', (e) => {
-      if (e.id === HATCH && !map.hasImage(HATCH)) map.addImage(HATCH, hatchImage(), { pixelRatio: 2 });
+    map.setMissingStyleImageResolver((id) => {
+      const draw = IMAGES[id];
+      if (draw && !map.hasImage(id)) map.addImage(id, draw(), { pixelRatio: 2 });
     });
 
     const popup = new maplibregl.Popup({ closeButton: false, closeOnClick: false, offset: 10 });
-    for (const layer of ['dest-dot', 'guess-dot']) {
+    for (const layer of ['dest-dot', 'candidate-icon', 'guess-dot']) {
       map.on('mousemove', layer, (e) => {
         const index = e.features?.[0]?.properties?.index;
         if (typeof index !== 'number') return;
@@ -251,7 +276,7 @@ export default function MapView(props: Props) {
     const map = mapRef.current;
     if (!map || !loadedRef.current) return;
     render(map, props);
-  }, [props.origin, props.answer, props.destinations, props.compare, props.wrongCountries]);
+  }, [props.origin, props.answer, props.destinations, props.compare, props.wrongCountries, props.candidates]);
 
   useEffect(() => {
     const map = mapRef.current;
@@ -261,10 +286,11 @@ export default function MapView(props: Props) {
   return <div ref={containerRef} className="map" />;
 }
 
-function render(map: MlMap, { origin, answer, destinations, compare, wrongCountries }: Props) {
+function render(map: MlMap, { origin, answer, destinations, compare, wrongCountries, candidates }: Props) {
   (map.getSource(DESTS) as GeoJSONSource).setData(routeDots(answer, destinations, compare));
   (map.getSource(ORIGIN) as GeoJSONSource).setData(origin ? dots([{ airport: origin, r: 8 }]) : empty);
   (map.getSource(GUESS) as GeoJSONSource).setData(dots(compare.map((airport) => ({ airport, r: 7 }))));
+  (map.getSource(CANDIDATES) as GeoJSONSource).setData(dots(candidates.map((airport) => ({ airport, r: 0 }))));
   for (const layer of ['wrong-country-hatch', 'wrong-country-border']) map.setFilter(layer, countryFilter(wrongCountries));
 }
 

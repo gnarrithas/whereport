@@ -1,6 +1,7 @@
 import { useMemo, useState, type KeyboardEvent, type ReactNode } from 'react';
 import MapView, { DOT_COLORS } from './components/MapView';
 import {
+  airports,
   countryName,
   datasetDate,
   destinationsFrom,
@@ -112,6 +113,10 @@ export default function App() {
     () => searchAirports(query, countryKnown ? target.country : undefined),
     [query, countryKnown, target],
   );
+  const candidates = useMemo(
+    () => (countryKnown ? airports.filter((a) => a.country === target.country) : []),
+    [countryKnown, target],
+  );
   const countryMatches = useMemo(() => searchCountries(query), [query]);
   const done = feedback?.kind === 'correct' || feedback?.kind === 'revealed';
   const targetCountry = countryName(target.country);
@@ -170,6 +175,7 @@ export default function App() {
         destinations={destinations}
         compare={diff}
         wrongCountries={wrongCountries}
+        candidates={candidates}
       />
 
       {wrongGuesses.length > 0 && (
