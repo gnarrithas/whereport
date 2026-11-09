@@ -1,5 +1,5 @@
 import { useMemo, useState, type KeyboardEvent, type ReactNode } from 'react';
-import MapView from './components/MapView';
+import MapView, { DOT_COLORS } from './components/MapView';
 import {
   countryName,
   datasetDate,
@@ -103,6 +103,8 @@ export default function App() {
   const [query, setQuery] = useState('');
   const [mode, setMode] = useState<Mode>('airport');
   const [countryKnown, setCountryKnown] = useState(false);
+  const [wrongGuesses, setWrongGuesses] = useState<Airport[]>([]);
+  const [diff, setDiff] = useState<Airport | null>(null);
 
   const destinations = useMemo(() => destinationsFrom(target), [target]);
   const airportMatches = useMemo(
@@ -121,7 +123,14 @@ export default function App() {
   const guessAirport = (airport: Airport) => {
     setQuery('');
     setAttempts((n) => n + 1);
-    setFeedback(airport === target ? { kind: 'correct' } : { kind: 'wrong', guess: airport });
+    if (airport === target) {
+      setFeedback({ kind: 'correct' });
+      setDiff(null);
+      return;
+    }
+    setFeedback({ kind: 'wrong', guess: airport });
+    setWrongGuesses((list) => (list.includes(airport) ? list : [...list, airport]));
+    setDiff(airport);
   };
 
   const guessCountry = (country: Country) => {
@@ -143,11 +152,44 @@ export default function App() {
     setQuery('');
     setMode('airport');
     setCountryKnown(false);
+    setWrongGuesses([]);
+    setDiff(null);
   };
 
   return (
     <div className="app">
-      <MapView origin={done ? target : null} destinations={destinations} />
+      <MapView origin={done ? target : null} answer={target} destinations={destinations} compare={diff} />
+
+      {wrongGuesses.length > 0 && (
+        <div className="card diff-panel">
+          <div className="diff-heading">Compare routes with your guesses</div>
+          <div className="diff-sub">Click a wrong guess to diff its routes against the mystery airport.</div>
+          <ul className="diff-list">
+            {wrongGuesses.map((a) => (
+              <li key={a.code}>
+                <button
+                  className={a === diff ? 'selected' : undefined}
+                  aria-pressed={a === diff}
+                  onClick={() => setDiff(a === diff ? null : a)}
+                >
+                  <strong>{a.code}</strong> {a.city || a.name}
+                </button>
+              </li>
+            ))}
+          </ul>
+          <button className="clear" onClick={() => setDiff(null)} disabled={!diff}>Clear diff</button>
+
+          {diff && (
+            <div className="legend" aria-label="Map legend">
+              <div className="legend-title">Diff: your guess {diff.code} vs. the {done ? `answer ${target.code}` : 'mystery airport'}</div>
+              <div><span className="swatch" style={{ background: DOT_COLORS.shared }} /> Both airports fly here</div>
+              <div><span className="swatch" style={{ background: DOT_COLORS.missing }} /> Only the {done ? 'answer' : 'mystery airport'} flies here — {diff.code} doesn't</div>
+              <div><span className="swatch" style={{ background: DOT_COLORS.extra }} /> Only {diff.code} flies here — the {done ? 'answer' : 'mystery airport'} doesn't</div>
+              <div><span className="swatch ring" /> Your guess, {diff.code}</div>
+            </div>
+          )}
+        </div>
+      )}
 
       <div className="card game">
         <div className="prompt">
