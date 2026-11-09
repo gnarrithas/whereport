@@ -186,6 +186,10 @@ export default function App() {
             return (
               <div className={diff.length ? 'legend' : 'legend empty'} aria-label="Map legend" aria-hidden={!diff.length}>
                 <div><span className="swatch" style={{ background: DOT_COLORS.shared }} /> {one ? 'They both' : 'They all'} fly here</div>
+                {/* Impossible with one guess: hidden rather than removed so the legend keeps its height. */}
+                <div style={one ? { visibility: 'hidden' } : undefined}>
+                  <span className="swatch" style={{ background: DOT_COLORS.partial }} /> Some guesses also fly here
+                </div>
                 <div><span className="swatch" style={{ background: DOT_COLORS.missing }} /> Only the {answer} flies here</div>
                 <div><span className="swatch faded" style={{ background: DOT_COLORS.extra }} /> Only {one ? them : 'the guesses'} {one ? 'flies' : 'fly'} here</div>
                 <div><span className="swatch ring" /> {one ? 'Your guess' : 'Your guesses'}</div>
@@ -197,7 +201,7 @@ export default function App() {
 
       <div className="card game">
         <div className="prompt">
-          Which airport has direct international flights to all {destinations.length} destinations?
+          Which airport has direct international flights to these {destinations.length} destinations?
         </div>
 
         {countryKnown && !done && (

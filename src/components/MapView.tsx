@@ -19,7 +19,7 @@ interface Props {
 }
 
 /** How a dot relates to the diff: flown by both sides, only by the answer, or only by the guesses. */
-export type DotKind = 'shared' | 'missing' | 'extra';
+export type DotKind = 'shared' | 'partial' | 'missing' | 'extra';
 
 interface DotProps {
   index: number;
@@ -30,6 +30,7 @@ interface DotProps {
 
 export const DOT_COLORS: Record<DotKind, string> = {
   shared: '#16a34a',
+  partial: '#93c5fd',
   missing: '#2563eb',
   extra: '#9ca3af',
 };
@@ -39,6 +40,7 @@ const EXTRA_OPACITY = 0.55;
 const dotColor: maplibregl.ExpressionSpecification = [
   'match', ['get', 'kind'],
   'shared', DOT_COLORS.shared,
+  'partial', DOT_COLORS.partial,
   'extra', DOT_COLORS.extra,
   DOT_COLORS.missing,
 ];
@@ -65,7 +67,7 @@ function dots(items: { airport: Airport; r: number; kind?: DotKind }[]): Feature
 
 /**
  * Dots for the answer's destinations, diffed against the ticked guesses: the answer's routes every guess
- * also flies turn green, the rest stay blue, and routes any guess flies but the answer lacks are added in
+ * also flies turn green, those only some fly turn light blue, the rest stay blue, and routes any guess flies but the answer lacks are added in
  * faded grey. Routes between the guesses themselves are dropped, and the answer is
  * never drawn, even when a guess flies there, so the diff cannot give it away.
  */
@@ -84,11 +86,14 @@ function routeDots(target: Airport, destinations: Destination[], compare: Airpor
       theirs.set(d.airport, { passengers: seen.passengers + d.passengers, guesses: seen.guesses + 1 });
     }
   }
-  const allFly = (a: Airport) => theirs.get(a)?.guesses === compare.length;
+  const kindOf = (a: Airport): DotKind => {
+    const n = theirs.get(a)?.guesses ?? 0;
+    return n === compare.length ? 'shared' : n > 0 ? 'partial' : 'missing';
+  };
   const ours = new Set(destinations.map((d) => d.airport));
   return dots([
     ...destinations.map((d) => ({
-      airport: d.airport, r: radius(d.passengers), kind: (allFly(d.airport) ? 'shared' : 'missing') as DotKind,
+      airport: d.airport, r: radius(d.passengers), kind: kindOf(d.airport),
     })),
     ...[...theirs]
       .filter(([a]) => !ours.has(a) && a !== target)
