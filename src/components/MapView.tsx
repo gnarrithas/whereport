@@ -16,6 +16,8 @@ interface Props {
   destinations: Destination[];
   /** Wrong guesses whose combined routes are diffed against the answer's; empty for no diff. */
   compare: Airport[];
+  /** Codes of countries guessed wrong, hatched in red. */
+  wrongCountries: string[];
 }
 
 /** How a dot relates to the diff: flown by both sides, only by the answer, or only by the guesses. */
@@ -48,6 +50,9 @@ const dotColor: maplibregl.ExpressionSpecification = [
 const DESTS = 'destinations';
 const ORIGIN = 'origin';
 const GUESS = 'guess';
+const COUNTRIES = 'countries';
+const HATCH = 'hatch';
+const WRONG_RED = '#dc2626';
 const BASEMAP_STYLE = 'https://tiles.openfreemap.org/styles/liberty';
 const PULSE_MS = 1600;
 const PULSE_GROW = 14;
@@ -107,16 +112,50 @@ function radius(passengers: number): number {
   return 3 + Math.min(4, Math.log10(Math.max(passengers, 1)) * 0.6);
 }
 
+/** Only the given countries' shapes, as a layer filter. */
+function countryFilter(codes: string[]): maplibregl.FilterSpecification {
+  return ['in', ['get', 'code'], ['literal', codes]];
+}
+
+/** A tile of red oblique lines, seamless when repeated, for hatching wrong countries. */
+function hatchImage(): ImageData {
+  const ratio = 2;
+  const size = 8 * ratio;
+  const ctx = document.createElement('canvas').getContext('2d')!;
+  ctx.canvas.width = ctx.canvas.height = size;
+  ctx.strokeStyle = WRONG_RED;
+  ctx.globalAlpha = 0.7;
+  ctx.lineWidth = 1.5 * ratio;
+  ctx.beginPath();
+  // The main diagonal plus the two corner stubs that continue it into the neighbouring tiles.
+  for (const off of [-size, 0, size]) {
+    ctx.moveTo(off, size);
+    ctx.lineTo(off + size, 0);
+  }
+  ctx.stroke();
+  return ctx.getImageData(0, 0, size, size);
+}
+
 const withRouteLayers: maplibregl.TransformStyleFunction = (_previous, next) => ({
   ...next,
   sources: {
     ...next.sources,
+    // Built offline by scripts/build_countries.py from Natural Earth; loaded on its own to keep the bundle small.
+    [COUNTRIES]: { type: 'geojson', data: `${import.meta.env.BASE_URL}countries.geojson` },
     [DESTS]: { type: 'geojson', data: empty },
     [ORIGIN]: { type: 'geojson', data: empty },
     [GUESS]: { type: 'geojson', data: empty },
   },
   layers: [
     ...next.layers,
+    {
+      id: 'wrong-country-hatch', type: 'fill', source: COUNTRIES, filter: countryFilter([]),
+      paint: { 'fill-pattern': HATCH },
+    },
+    {
+      id: 'wrong-country-border', type: 'line', source: COUNTRIES, filter: countryFilter([]),
+      paint: { 'line-color': WRONG_RED, 'line-width': 2 },
+    },
     {
       id: 'dest-pulse', type: 'circle', source: DESTS,
       filter: ['!=', ['get', 'kind'], 'extra'],
@@ -150,13 +189,14 @@ const withRouteLayers: maplibregl.TransformStyleFunction = (_previous, next) => 
 
 const WORLD: LngLatBoundsLike = [[-180, -60], [180, 80]];
 
-export default function MapView({ origin, answer, destinations, compare }: Props) {
+export default function MapView(props: Props) {
+  const { destinations } = props;
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<MlMap | null>(null);
   const loadedRef = useRef(false);
-  const latest = useRef({ origin, answer, destinations, compare });
+  const latest = useRef(props);
 
-  latest.current = { origin, answer, destinations, compare };
+  latest.current = props;
 
   useEffect(() => {
     const map = new maplibregl.Map({
@@ -167,6 +207,9 @@ export default function MapView({ origin, answer, destinations, compare }: Props
     map.setStyle(BASEMAP_STYLE, { transformStyle: withRouteLayers });
     map.addControl(new maplibregl.NavigationControl({ showCompass: false }));
     mapRef.current = map;
+    map.on('styleimagemissing', (e) => {
+      if (e.id === HATCH && !map.hasImage(HATCH)) map.addImage(HATCH, hatchImage(), { pixelRatio: 2 });
+    });
 
     const popup = new maplibregl.Popup({ closeButton: false, closeOnClick: false, offset: 10 });
     for (const layer of ['dest-dot', 'guess-dot']) {
@@ -192,8 +235,7 @@ export default function MapView({ origin, answer, destinations, compare }: Props
 
     map.on('load', () => {
       loadedRef.current = true;
-      const { origin, answer, destinations, compare } = latest.current;
-      render(map, origin, answer, destinations, compare);
+      render(map, latest.current);
       frame = requestAnimationFrame(pulse);
     });
 
@@ -208,8 +250,8 @@ export default function MapView({ origin, answer, destinations, compare }: Props
   useEffect(() => {
     const map = mapRef.current;
     if (!map || !loadedRef.current) return;
-    render(map, origin, answer, destinations, compare);
-  }, [origin, answer, destinations, compare]);
+    render(map, props);
+  }, [props.origin, props.answer, props.destinations, props.compare, props.wrongCountries]);
 
   useEffect(() => {
     const map = mapRef.current;
@@ -219,12 +261,11 @@ export default function MapView({ origin, answer, destinations, compare }: Props
   return <div ref={containerRef} className="map" />;
 }
 
-function render(
-  map: MlMap, origin: Airport | null, answer: Airport, destinations: Destination[], compare: Airport[],
-) {
+function render(map: MlMap, { origin, answer, destinations, compare, wrongCountries }: Props) {
   (map.getSource(DESTS) as GeoJSONSource).setData(routeDots(answer, destinations, compare));
   (map.getSource(ORIGIN) as GeoJSONSource).setData(origin ? dots([{ airport: origin, r: 8 }]) : empty);
   (map.getSource(GUESS) as GeoJSONSource).setData(dots(compare.map((airport) => ({ airport, r: 7 }))));
+  for (const layer of ['wrong-country-hatch', 'wrong-country-border']) map.setFilter(layer, countryFilter(wrongCountries));
 }
 
 /** Show the whole world, whatever the airport. */

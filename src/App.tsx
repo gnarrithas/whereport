@@ -104,6 +104,7 @@ export default function App() {
   const [mode, setMode] = useState<Mode>('airport');
   const [countryKnown, setCountryKnown] = useState(false);
   const [wrongGuesses, setWrongGuesses] = useState<Airport[]>([]);
+  const [wrongCountries, setWrongCountries] = useState<string[]>([]);
   const [diff, setDiff] = useState<Airport[]>([]);
 
   const destinations = useMemo(() => destinationsFrom(target), [target]);
@@ -145,6 +146,7 @@ export default function App() {
       setFeedback({ kind: 'right-country' });
     } else {
       setFeedback({ kind: 'wrong-country', guess: country });
+      setWrongCountries((list) => (list.includes(country.code) ? list : [...list, country.code]));
     }
   };
 
@@ -156,12 +158,19 @@ export default function App() {
     setMode('airport');
     setCountryKnown(false);
     setWrongGuesses([]);
+    setWrongCountries([]);
     setDiff([]);
   };
 
   return (
     <div className="app">
-      <MapView origin={done ? target : null} answer={target} destinations={destinations} compare={diff} />
+      <MapView
+        origin={done ? target : null}
+        answer={target}
+        destinations={destinations}
+        compare={diff}
+        wrongCountries={wrongCountries}
+      />
 
       {wrongGuesses.length > 0 && (
         <div className="card diff-panel">
