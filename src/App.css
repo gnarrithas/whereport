@@ -90,4 +90,4 @@ button.primary:disabled { opacity: 0.5; cursor: default; }
   margin-right: 6px; vertical-align: -1px; border: 1px solid #fff; box-shadow: 0 0 0 1px #c8cdd6;
 }
 .swatch.faded { opacity: 0.55; }
-.swatch.ring { background: #fff; border: 3px solid #111827; box-shadow: none; width: 8px; height: 8px; }
+.swatch.ring { background: #dc2626; border: 3px solid #111827; box-shadow: none; width: 8px; height: 8px; }

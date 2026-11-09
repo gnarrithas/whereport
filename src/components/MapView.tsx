@@ -209,7 +209,8 @@ const withRouteLayers: maplibregl.TransformStyleFunction = (_previous, next) => 
     {
       id: 'guess-dot', type: 'circle', source: GUESS,
       paint: {
-        'circle-color': '#fff', 'circle-radius': 7,
+        // Every ticked guess is a wrong one: red like the ruled-out dots, ringed to show it's being compared.
+        'circle-color': WRONG_RED, 'circle-radius': 7,
         'circle-stroke-color': '#111827', 'circle-stroke-width': 3,
       },
     },
