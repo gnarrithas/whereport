@@ -19,6 +19,8 @@ interface Props {
   compare: Airport[];
   /** Codes of countries guessed wrong, hatched in red. */
   wrongCountries: string[];
+  /** Possible answers already guessed wrong: a plain red dot instead of the icon, and not clickable. */
+  ruledOut: Airport[];
   /** A possible-answer icon was clicked. */
   onCandidateClick: (airport: Airport) => void;
   /** The player found the answer: its dot turns gold and fireworks go off above it. */
@@ -60,6 +62,7 @@ const GUESS = 'guess';
 const COUNTRIES = 'countries';
 const HATCH = 'hatch';
 const CANDIDATES = 'candidates';
+const RULED_OUT = 'ruled-out';
 // Not plain 'airport': the basemap's sprite already has an image by that name.
 const AIRPORT = 'daily-map-airport';
 const WRONG_RED = '#dc2626';
@@ -162,6 +165,7 @@ const withRouteLayers: maplibregl.TransformStyleFunction = (_previous, next) => 
     [ORIGIN]: { type: 'geojson', data: empty },
     [GUESS]: { type: 'geojson', data: empty },
     [CANDIDATES]: { type: 'geojson', data: empty },
+    [RULED_OUT]: { type: 'geojson', data: empty },
   },
   layers: [
     ...next.layers,
@@ -193,6 +197,13 @@ const withRouteLayers: maplibregl.TransformStyleFunction = (_previous, next) => 
         'icon-image': AIRPORT, 'icon-allow-overlap': true, 'icon-ignore-placement': true,
         // Image is 96px: 14px on the world view so a country's icons don't merge, growing as you zoom in.
         'icon-size': ['interpolate', ['exponential', 1.5], ['zoom'], 1, 0.15, 4, 0.3, 7, 0.6, 10, 1],
+      },
+    },
+    {
+      id: 'ruled-out-dot', type: 'circle', source: RULED_OUT,
+      paint: {
+        'circle-color': WRONG_RED, 'circle-radius': 5,
+        'circle-stroke-color': '#fff', 'circle-stroke-width': 1.5,
       },
     },
     {
@@ -243,12 +254,12 @@ export default function MapView(props: Props) {
     });
 
     const popup = new maplibregl.Popup({ closeButton: false, closeOnClick: false, offset: 10 });
-    for (const layer of ['dest-dot', 'candidate-icon', 'guess-dot']) {
+    for (const layer of ['dest-dot', 'candidate-icon', 'ruled-out-dot', 'guess-dot']) {
       map.on('mousemove', layer, (e) => {
         const index = e.features?.[0]?.properties?.index;
         if (typeof index !== 'number') return;
         const a = airports[index];
-        const suffix = layer === 'guess-dot' ? ' (your guess)' : '';
+        const suffix = layer === 'guess-dot' ? ' (your guess)' : layer === 'ruled-out-dot' ? ' (wrong)' : '';
         popup.setLngLat(a.lngLat).setText(`${a.code} · ${a.city || a.name}${suffix}`).addTo(map);
       });
       map.on('mouseleave', layer, () => popup.remove());
@@ -288,7 +299,10 @@ export default function MapView(props: Props) {
     const map = mapRef.current;
     if (!map || !loadedRef.current) return;
     render(map, props);
-  }, [props.origin, props.answer, props.destinations, props.compare, props.wrongCountries, props.candidates, props.won]);
+  }, [
+    props.origin, props.answer, props.destinations, props.compare, props.wrongCountries, props.candidates,
+    props.ruledOut, props.won,
+  ]);
 
   useEffect(() => {
     const map = mapRef.current;
@@ -313,13 +327,19 @@ export default function MapView(props: Props) {
   return <div ref={containerRef} className="map" />;
 }
 
-function render(map: MlMap, { origin, answer, destinations, compare, wrongCountries, candidates, won }: Props) {
+function render(
+  map: MlMap, { origin, answer, destinations, compare, wrongCountries, candidates, ruledOut, won }: Props,
+) {
   (map.getSource(DESTS) as GeoJSONSource).setData(routeDots(answer, destinations, compare));
   const originDot = origin ? dots([{ airport: origin, r: 8 }]) : empty;
   for (const f of originDot.features) Object.assign(f.properties, { won });
   (map.getSource(ORIGIN) as GeoJSONSource).setData(originDot);
   (map.getSource(GUESS) as GeoJSONSource).setData(dots(compare.map((airport) => ({ airport, r: 7 }))));
-  (map.getSource(CANDIDATES) as GeoJSONSource).setData(dots(candidates.map((airport) => ({ airport, r: 0 }))));
+  const out = new Set(ruledOut);
+  (map.getSource(CANDIDATES) as GeoJSONSource).setData(
+    dots(candidates.filter((a) => !out.has(a)).map((airport) => ({ airport, r: 0 }))),
+  );
+  (map.getSource(RULED_OUT) as GeoJSONSource).setData(dots(ruledOut.map((airport) => ({ airport, r: 5 }))));
   for (const layer of ['wrong-country-hatch', 'wrong-country-border']) map.setFilter(layer, countryFilter(wrongCountries));
 }
 

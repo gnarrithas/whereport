@@ -128,6 +128,7 @@ export default function App() {
     () => (countryKnown ? playableIn(target.country) : []),
     [countryKnown, target],
   );
+  const ruledOut = useMemo(() => candidates.filter((a) => wrongGuesses.includes(a)), [candidates, wrongGuesses]);
   const airportMatches = useMemo(
     () => searchAirports(query, countryKnown ? candidates : undefined),
     [query, countryKnown, candidates],
@@ -206,6 +207,7 @@ export default function App() {
         compare={diff}
         wrongCountries={wrongCountries}
         candidates={candidates}
+        ruledOut={ruledOut}
         won={feedback?.kind === 'correct'}
         onCandidateClick={fillFromMap}
       />
