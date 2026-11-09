@@ -9,9 +9,9 @@ import { airports, type Airport, type Destination } from '../data/airports';
 maplibregl.setWorkerUrl(workerUrl);
 
 interface Props {
+  /** The puzzle's answer: hidden (null) while the player is guessing. */
   origin: Airport | null;
   destinations: Destination[];
-  onAirportClick: (airport: Airport) => void;
 }
 
 interface DotProps {
@@ -74,14 +74,12 @@ const withRouteLayers: maplibregl.TransformStyleFunction = (_previous, next) => 
   ],
 });
 
-export default function MapView({ origin, destinations, onAirportClick }: Props) {
+export default function MapView({ origin, destinations }: Props) {
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<MlMap | null>(null);
   const loadedRef = useRef(false);
-  const clickRef = useRef(onAirportClick);
   const latest = useRef({ origin, destinations });
 
-  clickRef.current = onAirportClick;
   latest.current = { origin, destinations };
 
   useEffect(() => {
@@ -99,20 +97,9 @@ export default function MapView({ origin, destinations, onAirportClick }: Props)
       const index = e.features?.[0]?.properties?.index;
       if (typeof index !== 'number') return;
       const a = airports[index];
-      map.getCanvas().style.cursor = 'pointer';
       popup.setLngLat(a.lngLat).setText(`${a.code} · ${a.city || a.name}`).addTo(map);
     });
-    map.on('mouseleave', 'dest-dot', () => {
-      map.getCanvas().style.cursor = '';
-      popup.remove();
-    });
-    map.on('click', 'dest-dot', (e) => {
-      const index = e.features?.[0]?.properties?.index;
-      if (typeof index === 'number') {
-        popup.remove();
-        clickRef.current(airports[index]);
-      }
-    });
+    map.on('mouseleave', 'dest-dot', () => popup.remove());
 
     let frame = 0;
     const pulse = (now: number) => {
@@ -152,14 +139,16 @@ function render(map: MlMap, origin: Airport | null, destinations: Destination[])
     dots(destinations.map((d) => ({ airport: d.airport, r: radius(d.passengers) }))),
   );
   (map.getSource(ORIGIN) as GeoJSONSource).setData(origin ? dots([{ airport: origin, r: 8 }]) : empty);
-  if (origin) frame(map, origin, destinations);
+  frame(map, origin, destinations);
 }
 
-/** Fit the origin and its destinations, taking the short way across the antimeridian. */
-function frame(map: MlMap, origin: Airport, destinations: Destination[]) {
-  const [ox, oy] = origin.lngLat;
+/** Fit the destinations (and origin, once revealed), taking the short way across the antimeridian. */
+function frame(map: MlMap, origin: Airport | null, destinations: Destination[]) {
+  const points = [...(origin ? [origin] : []), ...destinations.map((d) => d.airport)];
+  if (!points.length) return;
+  const [ox, oy] = points[0].lngLat;
   let w = ox, e = ox, s = oy, n = oy;
-  for (const { airport } of destinations) {
+  for (const airport of points) {
     const [x, y] = airport.lngLat;
     const ux = ox + ((((x - ox) % 360) + 540) % 360) - 180;
     w = Math.min(w, ux); e = Math.max(e, ux);

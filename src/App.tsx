@@ -1,70 +1,124 @@
-import { useMemo, useState, type FormEvent } from 'react';
+import { useMemo, useState, type KeyboardEvent } from 'react';
 import MapView from './components/MapView';
-import { airports, datasetDate, destinationsFrom, findAirport, type Airport } from './data/airports';
+import { datasetDate, destinationsFrom, randomAirport, searchAirports, type Airport } from './data/airports';
 
-/** Airport named in the URL (?airport=OTP), so a view can be linked. */
-const linked = findAirport(new URLSearchParams(window.location.search).get('airport') ?? '') ?? null;
+type Feedback =
+  | { kind: 'wrong'; guess: Airport }
+  | { kind: 'correct' }
+  | { kind: 'revealed' }
+  | null;
+
+const label = (a: Airport) => `${a.city || a.name} — ${a.name} (${a.code})`;
 
 export default function App() {
-  const [query, setQuery] = useState(linked?.code ?? '');
-  const [origin, setOrigin] = useState<Airport | null>(linked);
-  const [error, setError] = useState<string | null>(null);
+  const [target, setTarget] = useState(() => randomAirport());
+  const [feedback, setFeedback] = useState<Feedback>(null);
+  const [attempts, setAttempts] = useState(0);
+  const [query, setQuery] = useState('');
+  const [open, setOpen] = useState(false);
+  const [active, setActive] = useState(0);
 
-  const destinations = useMemo(() => (origin ? destinationsFrom(origin) : []), [origin]);
+  const destinations = useMemo(() => destinationsFrom(target), [target]);
+  const matches = useMemo(() => searchAirports(query), [query]);
+  const done = feedback?.kind === 'correct' || feedback?.kind === 'revealed';
 
-  const show = (airport: Airport) => {
-    setOrigin(airport);
-    setQuery(airport.code);
-    setError(null);
-    const url = new URL(window.location.href);
-    url.searchParams.set('airport', airport.code);
-    window.history.replaceState(null, '', url);
+  const guess = (airport: Airport) => {
+    setQuery('');
+    setOpen(false);
+    setAttempts((n) => n + 1);
+    setFeedback(airport === target ? { kind: 'correct' } : { kind: 'wrong', guess: airport });
   };
 
-  const submit = (e: FormEvent) => {
-    e.preventDefault();
-    const code = query.trim().toUpperCase();
-    if (!code) return;
-    const airport = findAirport(code);
-    if (airport) show(airport);
-    else setError(`No airport with code ${code}`);
+  const next = () => {
+    setTarget((t) => randomAirport(t));
+    setFeedback(null);
+    setAttempts(0);
+    setQuery('');
+  };
+
+  const onKeyDown = (e: KeyboardEvent<HTMLInputElement>) => {
+    if (!matches.length) return;
+    if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      setOpen(true);
+      setActive((i) => (i + 1) % matches.length);
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      setActive((i) => (i - 1 + matches.length) % matches.length);
+    } else if (e.key === 'Enter' && open) {
+      e.preventDefault();
+      guess(matches[active]);
+    } else if (e.key === 'Escape') {
+      setOpen(false);
+    }
   };
 
   return (
     <div className="app">
-      <MapView origin={origin} destinations={destinations} onAirportClick={show} />
+      <MapView origin={done ? target : null} destinations={destinations} />
 
-      <form className="card search" onSubmit={submit}>
-        <input
-          value={query}
-          onChange={(e) => setQuery(e.target.value.toUpperCase())}
-          placeholder="Airport code, e.g. OTP"
-          maxLength={3}
-          list="airport-codes"
-          autoFocus
-          spellCheck={false}
-          aria-label="Airport code"
-        />
-        <button className="primary" type="submit">Show</button>
-        <datalist id="airport-codes">
-          {airports.map((a) => (
-            <option key={a.code} value={a.code}>{a.city ? `${a.city} — ${a.name}` : a.name}</option>
-          ))}
-        </datalist>
+      <div className="card game">
+        <div className="prompt">
+          Which airport has direct flights to all {destinations.length} blinking destinations?
+        </div>
+
+        {done ? (
+          <div className="actions">
+            <button className="primary" onClick={next} autoFocus>Next airport</button>
+          </div>
+        ) : (
+          <div className="guess">
+            <div className="combo">
+              <input
+                value={query}
+                onChange={(e) => { setQuery(e.target.value); setActive(0); setOpen(true); }}
+                onKeyDown={onKeyDown}
+                onFocus={() => setOpen(true)}
+                onBlur={() => setOpen(false)}
+                placeholder="Type a city, airport name or code"
+                autoFocus
+                spellCheck={false}
+                role="combobox"
+                aria-expanded={open && matches.length > 0}
+                aria-controls="airport-options"
+                aria-label="Your guess"
+              />
+              {open && matches.length > 0 && (
+                <ul id="airport-options" className="options" role="listbox">
+                  {matches.map((a, i) => (
+                    <li
+                      key={a.code}
+                      role="option"
+                      aria-selected={i === active}
+                      className={i === active ? 'active' : undefined}
+                      onMouseEnter={() => setActive(i)}
+                      onMouseDown={(e) => { e.preventDefault(); guess(a); }}
+                    >
+                      <strong>{a.city || a.name}</strong> {a.name} <span className="code">{a.code}</span>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+            <button onClick={() => setFeedback({ kind: 'revealed' })}>Give up</button>
+          </div>
+        )}
+
         <div className="status">
-          {error ? (
-            <span className="bad">{error}</span>
-          ) : origin ? (
-            <>
-              <strong>{origin.code}</strong> {origin.name}
-              {origin.city && `, ${origin.city}`} · {destinations.length} direct{' '}
-              {destinations.length === 1 ? 'destination' : 'destinations'}
-            </>
+          {feedback?.kind === 'correct' ? (
+            <span className="good">
+              Correct! It's {label(target)}
+              {attempts > 1 && ` — found in ${attempts} guesses`}.
+            </span>
+          ) : feedback?.kind === 'revealed' ? (
+            <span>The answer was {label(target)}.</span>
+          ) : feedback?.kind === 'wrong' ? (
+            <span className="bad">Wrong — it's not {label(feedback.guess)}. Try again.</span>
           ) : (
-            <>Enter an airport code to see its direct flights. Routes as of {datasetDate}.</>
+            <>Pick an airport from the list. Routes as of {datasetDate}.</>
           )}
         </div>
-      </form>
+      </div>
     </div>
   );
 }

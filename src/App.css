@@ -35,3 +35,31 @@ button {
 button:hover { background: #f2f4f7; }
 button.primary { background: #2563eb; border-color: #2563eb; color: #fff; }
 button.primary:hover { background: #1d4ed8; }
+
+.game {
+  position: absolute; top: 16px; left: 50%; transform: translateX(-50%);
+  display: flex; flex-direction: column; gap: 10px;
+  width: min(520px, calc(100% - 32px)); box-sizing: border-box;
+}
+.prompt { font-weight: 600; }
+.guess { display: flex; gap: 8px; }
+.combo { position: relative; flex: 1; min-width: 0; }
+.combo input {
+  width: 100%; box-sizing: border-box;
+  font: inherit; font-size: 1.05rem;
+  padding: 8px 12px; border-radius: 8px; border: 1px solid #c8cdd6;
+}
+.combo input:focus { outline: 2px solid #2563eb; outline-offset: -1px; }
+.options {
+  position: absolute; top: calc(100% + 4px); left: 0; right: 0; z-index: 1;
+  margin: 0; padding: 4px; list-style: none;
+  background: #fff; border-radius: 8px; box-shadow: 0 8px 24px rgba(0, 0, 0, 0.18);
+  max-height: 320px; overflow-y: auto;
+}
+.options li {
+  padding: 6px 10px; border-radius: 6px; cursor: pointer;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-size: 0.92rem;
+}
+.options li.active { background: #e8effd; }
+.options .code { color: #888; font-size: 0.85em; margin-left: 4px; }
+.good { color: #1f8a4c; font-weight: 600; }
