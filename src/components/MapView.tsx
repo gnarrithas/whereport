@@ -30,7 +30,7 @@ interface DotProps {
 
 export const DOT_COLORS: Record<DotKind, string> = {
   shared: '#16a34a',
-  partial: '#93c5fd',
+  partial: '#38bdf8',
   missing: '#2563eb',
   extra: '#9ca3af',
 };
@@ -67,8 +67,8 @@ function dots(items: { airport: Airport; r: number; kind?: DotKind }[]): Feature
 
 /**
  * Dots for the answer's destinations, diffed against the ticked guesses: the answer's routes every guess
- * also flies turn green, those only some fly turn light blue, the rest stay blue, and routes any guess flies but the answer lacks are added in
- * faded grey. Routes between the guesses themselves are dropped, and the answer is
+ * also flies turn green, those only some fly turn light blue, the rest stay blue, and routes any guess
+ * flies but the answer lacks are added in faded grey. Routes between the guesses themselves are dropped, and the answer is
  * never drawn, even when a guess flies there, so the diff cannot give it away.
  */
 function routeDots(target: Airport, destinations: Destination[], compare: Airport[]) {
@@ -91,13 +91,14 @@ function routeDots(target: Airport, destinations: Destination[], compare: Airpor
     return n === compare.length ? 'shared' : n > 0 ? 'partial' : 'missing';
   };
   const ours = new Set(destinations.map((d) => d.airport));
+  // Grey dots come first so they are drawn underneath: a busy guess has hundreds that would bury the answer's.
   return dots([
-    ...destinations.map((d) => ({
-      airport: d.airport, r: radius(d.passengers), kind: kindOf(d.airport),
-    })),
     ...[...theirs]
       .filter(([a]) => !ours.has(a) && a !== target)
       .map(([airport, { passengers }]) => ({ airport, r: radius(passengers), kind: 'extra' as DotKind })),
+    ...destinations.map((d) => ({
+      airport: d.airport, r: radius(d.passengers), kind: kindOf(d.airport),
+    })),
   ]);
 }
 
