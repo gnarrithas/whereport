@@ -177,6 +177,7 @@ export default function App() {
         compare={diff}
         wrongCountries={wrongCountries}
         candidates={candidates}
+        won={feedback?.kind === 'correct'}
       />
 
       {wrongGuesses.length > 0 && (

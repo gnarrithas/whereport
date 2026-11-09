@@ -3,6 +3,7 @@ import * as maplibregl from 'maplibre-gl';
 import type { GeoJSONSource, LngLatBoundsLike, Map as MlMap } from 'maplibre-gl';
 import type { FeatureCollection, Point } from 'geojson';
 import workerUrl from 'maplibre-gl/dist/maplibre-gl-worker.mjs?url';
+import { launchFireworks } from './fireworks';
 import { airports, destinationsFrom, type Airport, type Destination } from '../data/airports';
 
 // Vite pre-bundling breaks MapLibre's import.meta.url worker lookup; point it at the worker explicitly.
@@ -18,6 +19,8 @@ interface Props {
   compare: Airport[];
   /** Codes of countries guessed wrong, hatched in red. */
   wrongCountries: string[];
+  /** The player found the answer: its dot turns gold and fireworks go off above it. */
+  won: boolean;
   /** Airports that could be the answer, marked with an airport icon once its country is known; else empty. */
   candidates: Airport[];
 }
@@ -200,7 +203,9 @@ const withRouteLayers: maplibregl.TransformStyleFunction = (_previous, next) => 
     {
       id: 'origin-dot', type: 'circle', source: ORIGIN,
       paint: {
-        'circle-color': '#dc2626', 'circle-radius': 8,
+        // Gold when won, red when given up.
+        'circle-color': ['case', ['get', 'won'], '#f5b301', '#dc2626'],
+        'circle-radius': ['case', ['get', 'won'], 10, 8],
         'circle-stroke-color': '#fff', 'circle-stroke-width': 2,
       },
     },
@@ -275,19 +280,36 @@ export default function MapView(props: Props) {
     const map = mapRef.current;
     if (!map || !loadedRef.current) return;
     render(map, props);
-  }, [props.origin, props.answer, props.destinations, props.compare, props.wrongCountries, props.candidates]);
+  }, [props.origin, props.answer, props.destinations, props.compare, props.wrongCountries, props.candidates, props.won]);
 
   useEffect(() => {
     const map = mapRef.current;
     if (map && loadedRef.current) showWorld(map);
   }, [destinations]);
 
+  // Fireworks once per win, above the answer. Waits for the map, which may still be loading.
+  const { won, answer } = props;
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!won || !map) return;
+    let stop = () => {};
+    const start = () => { stop = launchFireworks(map, answer.lngLat); };
+    if (loadedRef.current) start();
+    else map.once('load', start);
+    return () => {
+      map.off('load', start);
+      stop();
+    };
+  }, [won, answer]);
+
   return <div ref={containerRef} className="map" />;
 }
 
-function render(map: MlMap, { origin, answer, destinations, compare, wrongCountries, candidates }: Props) {
+function render(map: MlMap, { origin, answer, destinations, compare, wrongCountries, candidates, won }: Props) {
   (map.getSource(DESTS) as GeoJSONSource).setData(routeDots(answer, destinations, compare));
-  (map.getSource(ORIGIN) as GeoJSONSource).setData(origin ? dots([{ airport: origin, r: 8 }]) : empty);
+  const originDot = origin ? dots([{ airport: origin, r: 8 }]) : empty;
+  for (const f of originDot.features) Object.assign(f.properties, { won });
+  (map.getSource(ORIGIN) as GeoJSONSource).setData(originDot);
   (map.getSource(GUESS) as GeoJSONSource).setData(dots(compare.map((airport) => ({ airport, r: 7 }))));
   (map.getSource(CANDIDATES) as GeoJSONSource).setData(dots(candidates.map((airport) => ({ airport, r: 0 }))));
   for (const layer of ['wrong-country-hatch', 'wrong-country-border']) map.setFilter(layer, countryFilter(wrongCountries));
