@@ -242,7 +242,7 @@ const countryDotsImage = (kind: DotKind) => `country-dots-${kind}`;
 /** A tile of staggered dots, seamless when repeated, for a destination country of the given kind. */
 function dotsImage(kind: DotKind): ImageData {
   const ratio = 2;
-  const size = 8 * ratio;
+  const size = 10 * ratio;
   const ctx = document.createElement('canvas').getContext('2d')!;
   ctx.canvas.width = ctx.canvas.height = size;
   ctx.fillStyle = DOT_COLORS[kind];
@@ -250,8 +250,8 @@ function dotsImage(kind: DotKind): ImageData {
   ctx.beginPath();
   // One dot in the corner (its quarters in all four corners, so it is whole once tiled) and one in the middle.
   for (const [x, y] of [[0, 0], [size, 0], [0, size], [size, size], [size / 2, size / 2]]) {
-    ctx.moveTo(x + ratio, y);
-    ctx.arc(x, y, 1 * ratio, 0, 2 * Math.PI);
+    ctx.moveTo(x + 0.85 * ratio, y);
+    ctx.arc(x, y, 0.85 * ratio, 0, 2 * Math.PI);
   }
   ctx.fill();
   return ctx.getImageData(0, 0, size, size);
