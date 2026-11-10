@@ -1,3 +1,4 @@
+import { DEV_MODE } from '../mode';
 import { findAirport, isPlayable, playable, type Airport } from './airports';
 
 const MS_IN_DAY = 86400000;
@@ -41,7 +42,7 @@ export interface Daily {
  * seed; development, which has none, walks the playable airports in order.
  */
 export async function loadDailyAirport(): Promise<Daily> {
-  if (import.meta.env.DEV) {
+  if (DEV_MODE) {
     const day = dayIndex(Infinity);
     return { airport: playable[day % playable.length], day };
   }

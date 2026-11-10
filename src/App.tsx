@@ -14,6 +14,7 @@ import {
   type Country,
 } from './data/airports';
 import type { Daily } from './data/daily';
+import { DEV_MODE } from './mode';
 import { MARKS, copyText, shareText, siteUrl, type Mark } from './share';
 
 type Feedback =
@@ -170,6 +171,8 @@ export default function App({ daily }: { daily: Daily }) {
   /** Still on today's puzzle, the only one that can be shared. */
   const [isDaily, setIsDaily] = useState(true);
   const [marks, setMarks] = useState<Mark[]>([]);
+  /** Dev mode: the answer shown on the map mid-game. */
+  const [peeking, setPeeking] = useState(false);
   const [copied, setCopied] = useState<'yes' | 'failed' | null>(null);
   const [feedback, setFeedback] = useState<Feedback>(null);
   const [attempts, setAttempts] = useState(0);
@@ -278,6 +281,7 @@ export default function App({ daily }: { daily: Daily }) {
     setIsDaily(false);
     setMarks([]);
     setCopied(null);
+    setPeeking(false);
     setFeedback(null);
     setAttempts(0);
     setQuery('');
@@ -303,8 +307,15 @@ export default function App({ daily }: { daily: Daily }) {
         ruledOut={wrongGuesses}
         domestic={domesticShown ? domestic : []}
         won={feedback?.kind === 'correct'}
+        peek={DEV_MODE && peeking ? target : null}
         onCandidateClick={fillFromMap}
       />
+
+      {DEV_MODE && !done && (
+        <button className="dev-reveal" onClick={() => setPeeking((p) => !p)} aria-pressed={peeking}>
+          {peeking ? `Hide ${target.code}` : 'Reveal'}
+        </button>
+      )}
 
       {wrongGuesses.length > 0 && (
         <div className="card diff-panel">

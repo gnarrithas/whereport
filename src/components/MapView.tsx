@@ -27,6 +27,8 @@ interface Props {
   domestic: Destination[];
   /** The player found the answer: its dot turns gold and fireworks go off above it. */
   won: boolean;
+  /** Dev mode only: the answer, peeked at mid-game as a faint airport icon; else null. */
+  peek: Airport | null;
   /** Airports that could be the answer, marked with an airport icon once its country is known; else empty. */
   candidates: Airport[];
 }
@@ -67,6 +69,7 @@ const CANDIDATES = 'candidates';
 const RULED_OUT = 'ruled-out';
 const DOMESTIC = 'domestic';
 const ROUTES = 'routes';
+const PEEK = 'peek';
 const ARC_STEPS = 48;
 const DOMESTIC_COLOR = '#9333ea';
 /** Wrong guesses are drawn mid-sized among the destination dots (3–7px). */
@@ -218,6 +221,7 @@ const withRouteLayers: maplibregl.TransformStyleFunction = (_previous, next) => 
     [RULED_OUT]: { type: 'geojson', data: empty },
     [DOMESTIC]: { type: 'geojson', data: empty },
     [ROUTES]: { type: 'geojson', data: empty },
+    [PEEK]: { type: 'geojson', data: empty },
   },
   layers: [
     ...next.layers,
@@ -281,6 +285,16 @@ const withRouteLayers: maplibregl.TransformStyleFunction = (_previous, next) => 
         'circle-color': WRONG_RED, 'circle-radius': GUESS_RADIUS,
         'circle-stroke-color': '#111827', 'circle-stroke-width': 1.5,
       },
+    },
+    {
+      // Dev mode's peek at the answer: 60% transparent, above everything but the revealed answer.
+      id: 'peek-icon', type: 'symbol', source: PEEK,
+      layout: {
+        'icon-image': AIRPORT, 'icon-allow-overlap': true, 'icon-ignore-placement': true,
+        // On the world view just a bit larger than a destination dot, growing as you zoom in.
+        'icon-size': ['interpolate', ['exponential', 1.5], ['zoom'], 1, 0.2, 4, 0.35, 7, 0.6, 10, 1],
+      },
+      paint: { 'icon-opacity': 0.4 },
     },
     {
       id: 'origin-dot', type: 'circle', source: ORIGIN,
@@ -370,7 +384,7 @@ export default function MapView(props: Props) {
     render(map, props);
   }, [
     props.origin, props.answer, props.destinations, props.compare, props.wrongCountries, props.candidates,
-    props.ruledOut, props.domestic, props.won,
+    props.ruledOut, props.domestic, props.won, props.peek,
   ]);
 
   useEffect(() => {
@@ -397,7 +411,7 @@ export default function MapView(props: Props) {
 }
 
 function render(
-  map: MlMap, { origin, answer, destinations, compare, wrongCountries, candidates, ruledOut, domestic, won }: Props,
+  map: MlMap, { origin, answer, destinations, compare, wrongCountries, candidates, ruledOut, domestic, won, peek }: Props,
 ) {
   (map.getSource(DESTS) as GeoJSONSource).setData(routeDots(answer, destinations, compare));
   const originDot = origin ? dots([{ airport: origin, r: 8 }]) : empty;
@@ -410,6 +424,8 @@ function render(
   (map.getSource(CANDIDATES) as GeoJSONSource).setData(
     dots(candidates.filter((a) => !out.has(a)).map((airport) => ({ airport, r: 0 }))),
   );
+  // Once the answer is revealed its own dot takes over.
+  (map.getSource(PEEK) as GeoJSONSource).setData(peek && !origin ? dots([{ airport: peek, r: 0 }]) : empty);
   (map.getSource(ROUTES) as GeoJSONSource).setData(origin ? routeLines(origin, destinations, domestic) : empty);
   (map.getSource(DOMESTIC) as GeoJSONSource).setData(
     dots(domestic.map((d) => ({ airport: d.airport, r: radius(d.passengers) }))),
