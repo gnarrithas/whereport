@@ -1,6 +1,6 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type KeyboardEvent, type ReactNode, type Ref } from 'react';
 import '@fontsource/fredoka/700.css';
-import MapView, { DOT_COLORS } from './components/MapView';
+import MapView from './components/MapView';
 import {
   countryName,
   datasetDate,
@@ -15,6 +15,8 @@ import {
 } from './data/airports';
 import type { Daily } from './data/daily';
 import { DEV_MODE } from './mode';
+import { PALETTES } from './palette';
+import { isBoolean, isTheme, useDark, useSetting, type Theme } from './settings';
 import { copyText, shareText, siteUrl } from './share';
 import {
   guessCount, isOver, loadDailyGame, markOf, newGame, play, saveDailyGame, type Game, type Move,
@@ -22,24 +24,6 @@ import {
 
 type Mode = 'airport' | 'country';
 
-const HIGHLIGHT_KEY = 'whereport:highlight-countries';
-
-/** A remembered on/off setting; off when unset or storage is unavailable. */
-function loadSetting(key: string): boolean {
-  try {
-    return localStorage.getItem(key) === '1';
-  } catch {
-    return false;
-  }
-}
-
-function saveSetting(key: string, on: boolean) {
-  try {
-    localStorage.setItem(key, on ? '1' : '0');
-  } catch (err) {
-    console.warn(`Could not save ${key}`, err);
-  }
-}
 
 const label = (a: Airport) => `${a.city || a.name} — ${a.name} (${a.code})`;
 
@@ -128,7 +112,8 @@ function Combo<T>({
 }
 
 /** The "?" button in the question card's corner and the how-to-play panel it opens. */
-function Help() {
+/** A round button in the question card's corner, opening a panel; outside clicks and Escape close it. */
+function Popover({ id, label, icon, children }: { id: string; label: string; icon: ReactNode; children: ReactNode }) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
 
@@ -145,37 +130,91 @@ function Help() {
   }, [open]);
 
   return (
-    <div className="help" ref={ref}>
+    <div className="popover" ref={ref}>
       <button
-        className="help-toggle"
-        aria-label="How to play"
+        className="corner-toggle"
+        aria-label={label}
         aria-expanded={open}
-        aria-controls="how-to-play"
+        aria-controls={id}
         onClick={() => setOpen((o) => !o)}
       >
-        ?
+        {icon}
       </button>
       {open && (
-        <div id="how-to-play" className="help-panel" role="dialog" aria-label="How to play">
-          <button className="help-close" aria-label="Close" onClick={() => setOpen(false)}>×</button>
-          <h2>How to play</h2>
-          <p>
-            You must guess the mystery airport. Each dot represents a non-domestic destination of a direct flight from the mystery airport.
-          </p>
-          <ul>
-            <li>Type a city, airport name or code and pick it from the list to guess.</li>
-            <li>
-              Stuck? <strong>Guess the country</strong> first. Get it right and the candidate airports
-              appear on the map: you can then click on those.
-              You can also <strong>reveal domestic flights</strong> for a further hint.
-            </li>
-            <li>
-              Tick wrong guesses in the bottom-left panel to compare routes with the mystery airport.
-            </li>
-          </ul>
+        <div id={id} className="popover-panel" role="dialog" aria-label={label}>
+          <button className="popover-close" aria-label="Close" onClick={() => setOpen(false)}>×</button>
+          {children}
         </div>
       )}
     </div>
+  );
+}
+
+function Help() {
+  return (
+    <Popover id="how-to-play" label="How to play" icon="?">
+      <h2>How to play</h2>
+      <p>
+        You must guess the mystery airport. Each dot represents a non-domestic destination of a direct flight from the mystery airport.
+      </p>
+      <ul>
+        <li>Type a city, airport name or code and pick it from the list to guess.</li>
+        <li>
+          Stuck? <strong>Guess the country</strong> first. Get it right and the candidate airports
+          appear on the map: you can then click on those.
+          You can also <strong>reveal domestic flights</strong> for a further hint.
+        </li>
+        <li>
+          Tick wrong guesses in the bottom-left panel to compare routes with the mystery airport.
+        </li>
+      </ul>
+    </Popover>
+  );
+}
+
+const cog = (
+  <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="2"
+    strokeLinecap="round" strokeLinejoin="round">
+    <circle cx="12" cy="12" r="3" />
+    <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" />
+  </svg>
+);
+
+const THEMES: { value: Theme; label: string }[] = [
+  { value: 'auto', label: 'Auto' },
+  { value: 'light', label: 'Light' },
+  { value: 'dark', label: 'Dark' },
+];
+
+interface SettingsProps {
+  theme: Theme;
+  onTheme: (theme: Theme) => void;
+  colorblind: boolean;
+  onColorblind: (on: boolean) => void;
+}
+
+function Settings({ theme, onTheme, colorblind, onColorblind }: SettingsProps) {
+  return (
+    <Popover id="settings" label="Settings" icon={cog}>
+      <h2>Settings</h2>
+      <div className="setting">
+        <span id="theme-label">Appearance</span>
+        <div className="segmented" role="radiogroup" aria-labelledby="theme-label">
+          {THEMES.map((t) => (
+            <button key={t.value} role="radio" aria-checked={theme === t.value} onClick={() => onTheme(t.value)}>
+              {t.label}
+            </button>
+          ))}
+        </div>
+      </div>
+      <label className="setting">
+        <span>
+          Colour-blind friendly colours
+          <span className="setting-sub">Map colours that stay apart with any colour-vision deficiency.</span>
+        </span>
+        <input type="checkbox" checked={colorblind} onChange={(e) => onColorblind(e.target.checked)} />
+      </label>
+    </Popover>
   );
 }
 
@@ -186,8 +225,11 @@ export default function App({ daily }: { daily: Daily }) {
   const [isDaily, setIsDaily] = useState(true);
   const [game, setGame] = useState<Game>(() => loadDailyGame(daily.day, daily.airport));
   const { feedback, countryKnown, wrongGuesses, wrongCountries, domesticShown } = game;
-  const [highlightCountries, setHighlightCountries] = useState(() => loadSetting(HIGHLIGHT_KEY));
-  useEffect(() => saveSetting(HIGHLIGHT_KEY, highlightCountries), [highlightCountries]);
+  const [highlightCountries, setHighlightCountries] = useSetting('highlight-countries', false, isBoolean);
+  const [theme, setTheme] = useSetting<Theme>('theme', 'auto', isTheme);
+  const [colorblind, setColorblind] = useSetting('colorblind', false, isBoolean);
+  const dark = useDark(theme);
+  const palette = PALETTES[colorblind ? 'colorblind' : 'standard'];
   /** Dev mode: the answer shown on the map mid-game. */
   const [peeking, setPeeking] = useState(false);
   const [copied, setCopied] = useState<'yes' | 'failed' | null>(null);
@@ -321,6 +363,8 @@ export default function App({ daily }: { daily: Daily }) {
         won={feedback?.kind === 'correct'}
         peek={DEV_MODE && peeking ? target : null}
         highlightCountries={highlightCountries}
+        palette={palette}
+        dark={dark}
         onCandidateClick={fillFromMap}
       />
 
@@ -355,14 +399,14 @@ export default function App({ daily }: { daily: Daily }) {
             // Always rendered, just hidden when nothing is ticked, so the panel keeps its height.
             return (
               <div className={diff.length ? 'legend' : 'legend empty'} aria-label="Map legend" aria-hidden={!diff.length}>
-                <div><span className="swatch" style={{ background: DOT_COLORS.shared }} /> {one ? 'They both' : 'They all'} fly here</div>
-                <div><span className="swatch" style={{ background: DOT_COLORS.missing }} /> Only the {answer} flies here</div>
+                <div><span className="swatch" style={{ background: palette.dots.shared }} /> {one ? 'They both' : 'They all'} fly here</div>
+                <div><span className="swatch" style={{ background: palette.dots.missing }} /> Only the {answer} flies here</div>
                 {/* Impossible with one guess: hidden rather than removed so the legend keeps its height. */}
                 <div style={one ? { visibility: 'hidden' } : undefined}>
-                  <span className="swatch" style={{ background: DOT_COLORS.partial }} /> Some guesses also fly here
+                  <span className="swatch" style={{ background: palette.dots.partial }} /> Some guesses also fly here
                 </div>
-                <div><span className="swatch faded" style={{ background: DOT_COLORS.extra }} /> Only {one ? them : 'the guesses'} {one ? 'flies' : 'fly'} here</div>
-                <div><span className="swatch ring" /> {one ? 'Your guess' : 'Your guesses'}</div>
+                <div><span className="swatch faded" style={{ background: palette.dots.extra }} /> Only {one ? them : 'the guesses'} {one ? 'flies' : 'fly'} here</div>
+                <div><span className="swatch ring" style={{ background: palette.wrong }} /> {one ? 'Your guess' : 'Your guesses'}</div>
               </div>
             );
           })()}
@@ -370,7 +414,10 @@ export default function App({ daily }: { daily: Daily }) {
       )}
 
       <div className="card game">
-        <Help />
+        <div className="corner">
+          <Settings theme={theme} onTheme={setTheme} colorblind={colorblind} onColorblind={setColorblind} />
+          <Help />
+        </div>
         <div className="prompt">
           Which airport has direct international flights to these {destinations.length} destinations?
         </div>
