@@ -1,7 +1,7 @@
 import { useEffect, useRef } from 'react';
 import * as maplibregl from 'maplibre-gl';
 import type { GeoJSONSource, LngLatBoundsLike, Map as MlMap } from 'maplibre-gl';
-import type { FeatureCollection, Point } from 'geojson';
+import type { FeatureCollection, LineString, Point } from 'geojson';
 import workerUrl from 'maplibre-gl/dist/maplibre-gl-worker.mjs?url';
 import { launchFireworks } from './fireworks';
 import { airports, destinationsFrom, type Airport, type Destination } from '../data/airports';
@@ -66,6 +66,8 @@ const HATCH = 'hatch';
 const CANDIDATES = 'candidates';
 const RULED_OUT = 'ruled-out';
 const DOMESTIC = 'domestic';
+const ROUTES = 'routes';
+const ARC_STEPS = 48;
 const DOMESTIC_COLOR = '#9333ea';
 /** Wrong guesses are drawn mid-sized among the destination dots (3–7px). */
 const GUESS_RADIUS = 5;
@@ -126,6 +128,48 @@ function routeDots(target: Airport, destinations: Destination[], compare: Airpor
   ]);
 }
 
+/**
+ * The great-circle path from a to b as [lng, lat] points. Longitudes are unwrapped (they may pass ±180) so a
+ * route across the antimeridian is drawn the short way rather than across the whole map.
+ */
+function arc(a: [number, number], b: [number, number]): [number, number][] {
+  const rad = Math.PI / 180;
+  const toVec = ([lng, lat]: [number, number]) =>
+    [Math.cos(lat * rad) * Math.cos(lng * rad), Math.cos(lat * rad) * Math.sin(lng * rad), Math.sin(lat * rad)];
+  const p = toVec(a);
+  const q = toVec(b);
+  const angle = Math.acos(Math.min(1, Math.max(-1, p[0] * q[0] + p[1] * q[1] + p[2] * q[2])));
+  if (angle < 1e-9) return [a, b];
+  const points: [number, number][] = [];
+  let prevLng = a[0];
+  for (let i = 0; i <= ARC_STEPS; i++) {
+    const t = i / ARC_STEPS;
+    const ka = Math.sin((1 - t) * angle) / Math.sin(angle);
+    const kb = Math.sin(t * angle) / Math.sin(angle);
+    const [x, y, z] = [0, 1, 2].map((k) => ka * p[k] + kb * q[k]);
+    let lng = Math.atan2(y, x) / rad;
+    // Keep each step within 180° of the last, so the line never jumps across the map.
+    lng += Math.round((prevLng - lng) / 360) * 360;
+    prevLng = lng;
+    points.push([lng, Math.atan2(z, Math.hypot(x, y)) / rad]);
+  }
+  return points;
+}
+
+/** Lines from the revealed answer to each of its destinations, marked domestic or not for their colour. */
+function routeLines(origin: Airport, destinations: Destination[], domestic: Destination[]) {
+  const lines: FeatureCollection<LineString, { domestic: boolean }> = {
+    type: 'FeatureCollection',
+    features: [...destinations.map((d) => [d, false] as const), ...domestic.map((d) => [d, true] as const)]
+      .map(([d, isDomestic]) => ({
+        type: 'Feature',
+        geometry: { type: 'LineString', coordinates: arc(origin.lngLat, d.airport.lngLat) },
+        properties: { domestic: isDomestic },
+      })),
+  };
+  return lines;
+}
+
 /** Busier routes get bigger dots: 3px for the quietest up to 7px. */
 function radius(passengers: number): number {
   return 3 + Math.min(4, Math.log10(Math.max(passengers, 1)) * 0.6);
@@ -173,6 +217,7 @@ const withRouteLayers: maplibregl.TransformStyleFunction = (_previous, next) => 
     [CANDIDATES]: { type: 'geojson', data: empty },
     [RULED_OUT]: { type: 'geojson', data: empty },
     [DOMESTIC]: { type: 'geojson', data: empty },
+    [ROUTES]: { type: 'geojson', data: empty },
   },
   layers: [
     ...next.layers,
@@ -183,6 +228,15 @@ const withRouteLayers: maplibregl.TransformStyleFunction = (_previous, next) => 
     {
       id: 'wrong-country-border', type: 'line', source: COUNTRIES, filter: countryFilter([]),
       paint: { 'line-color': WRONG_RED, 'line-width': 2 },
+    },
+    {
+      // Under all the dots, so lines end at their edges.
+      id: 'route-line', type: 'line', source: ROUTES,
+      layout: { 'line-cap': 'round' },
+      paint: {
+        'line-color': ['case', ['get', 'domestic'], DOMESTIC_COLOR, DOT_COLORS.missing],
+        'line-width': 1.4, 'line-opacity': 0.55,
+      },
     },
     {
       id: 'dest-pulse', type: 'circle', source: DESTS,
@@ -356,6 +410,7 @@ function render(
   (map.getSource(CANDIDATES) as GeoJSONSource).setData(
     dots(candidates.filter((a) => !out.has(a)).map((airport) => ({ airport, r: 0 }))),
   );
+  (map.getSource(ROUTES) as GeoJSONSource).setData(origin ? routeLines(origin, destinations, domestic) : empty);
   (map.getSource(DOMESTIC) as GeoJSONSource).setData(
     dots(domestic.map((d) => ({ airport: d.airport, r: radius(d.passengers) }))),
   );

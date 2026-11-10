@@ -143,23 +143,17 @@ function Help() {
           <button className="help-close" aria-label="Close" onClick={() => setOpen(false)}>×</button>
           <h2>How to play</h2>
           <p>
-            The blinking dots are every airport abroad that one mystery airport flies to directly.
-            Work out which airport it is.
+            You must guess the mystery airport. Each dot represents a non-domestic destination of a direct flight from the mystery airport.
           </p>
           <ul>
             <li>Type a city, airport name or code and pick it from the list to guess.</li>
             <li>
-              Stuck? <strong>Guess the country</strong> first. Get it right and the airports that could be
-              the answer appear on the map: click one to fill it in, then press Enter or Guess.
+              Stuck? <strong>Guess the country</strong> first. Get it right and the candidate airports
+              appear on the map: you can then click on those.
               You can also <strong>reveal domestic flights</strong> for a further hint.
             </li>
             <li>
-              Wrong airports turn into red dots, wrong countries are hatched in red.
-            </li>
-            <li>
-              Tick wrong guesses in the panel bottom-left to compare their routes with the mystery airport's:
-              green — they all fly there, blue — only the mystery airport does, light blue — some guesses do,
-              grey — only the guesses do.
+              Tick wrong guesses in the bottom-left panel to compare routes with the mystery airport.
             </li>
           </ul>
         </div>
@@ -285,7 +279,7 @@ export default function App() {
         wrongCountries={wrongCountries}
         candidates={candidates}
         ruledOut={wrongGuesses}
-        domestic={domesticShown && !done ? domestic : []}
+        domestic={domesticShown ? domestic : []}
         won={feedback?.kind === 'correct'}
         onCandidateClick={fillFromMap}
       />
