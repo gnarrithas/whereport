@@ -19,7 +19,7 @@ interface Props {
   compare: Airport[];
   /** Codes of countries guessed wrong, hatched in red. */
   wrongCountries: string[];
-  /** Possible answers already guessed wrong: a plain red dot instead of the icon, and not clickable. */
+  /** Airports guessed wrong: always a red dot (in place of a possible-answer icon), never clickable. */
   ruledOut: Airport[];
   /** A possible-answer icon was clicked. */
   onCandidateClick: (airport: Airport) => void;
@@ -63,6 +63,8 @@ const COUNTRIES = 'countries';
 const HATCH = 'hatch';
 const CANDIDATES = 'candidates';
 const RULED_OUT = 'ruled-out';
+/** Wrong guesses are drawn mid-sized among the destination dots (3–7px). */
+const GUESS_RADIUS = 5;
 // Not plain 'airport': the basemap's sprite already has an image by that name.
 const AIRPORT = 'daily-map-airport';
 const WRONG_RED = '#dc2626';
@@ -202,16 +204,16 @@ const withRouteLayers: maplibregl.TransformStyleFunction = (_previous, next) => 
     {
       id: 'ruled-out-dot', type: 'circle', source: RULED_OUT,
       paint: {
-        'circle-color': WRONG_RED, 'circle-radius': 5,
-        'circle-stroke-color': '#fff', 'circle-stroke-width': 1.5,
+        'circle-color': WRONG_RED, 'circle-radius': GUESS_RADIUS,
+        'circle-stroke-color': '#fff', 'circle-stroke-width': 1,
       },
     },
     {
       id: 'guess-dot', type: 'circle', source: GUESS,
       paint: {
-        // Every ticked guess is a wrong one: red like the ruled-out dots, ringed to show it's being compared.
-        'circle-color': WRONG_RED, 'circle-radius': 7,
-        'circle-stroke-color': '#111827', 'circle-stroke-width': 3,
+        // A ticked wrong guess: the same red dot, its edge dark instead of white to show it's being compared.
+        'circle-color': WRONG_RED, 'circle-radius': GUESS_RADIUS,
+        'circle-stroke-color': '#111827', 'circle-stroke-width': 1.5,
       },
     },
     {
@@ -335,12 +337,12 @@ function render(
   const originDot = origin ? dots([{ airport: origin, r: 8 }]) : empty;
   for (const f of originDot.features) Object.assign(f.properties, { won });
   (map.getSource(ORIGIN) as GeoJSONSource).setData(originDot);
-  (map.getSource(GUESS) as GeoJSONSource).setData(dots(compare.map((airport) => ({ airport, r: 7 }))));
+  (map.getSource(GUESS) as GeoJSONSource).setData(dots(compare.map((airport) => ({ airport, r: GUESS_RADIUS }))));
   const out = new Set(ruledOut);
   (map.getSource(CANDIDATES) as GeoJSONSource).setData(
     dots(candidates.filter((a) => !out.has(a)).map((airport) => ({ airport, r: 0 }))),
   );
-  (map.getSource(RULED_OUT) as GeoJSONSource).setData(dots(ruledOut.map((airport) => ({ airport, r: 5 }))));
+  (map.getSource(RULED_OUT) as GeoJSONSource).setData(dots(ruledOut.map((airport) => ({ airport, r: GUESS_RADIUS }))));
   for (const layer of ['wrong-country-hatch', 'wrong-country-border']) map.setFilter(layer, countryFilter(wrongCountries));
 }
 
