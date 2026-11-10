@@ -53,8 +53,9 @@ export const DOT_COLORS: Record<DotKind, string> = {
 };
 
 const EXTRA_OPACITY = 0.55;
-/** Destination countries' tint: much fainter than the dots, fainter still for the guesses' routes alone. */
-const COUNTRY_OPACITY = 0.18;
+/** Destination countries' tint, fainter than the dots. Grey shows less on the land colour, so it isn't scaled down as much as its dots. */
+const COUNTRY_OPACITY = 0.35;
+const EXTRA_COUNTRY_OPACITY = 0.3;
 /** A country with dots of several kinds takes the first: what sets the answer apart from the guesses wins. */
 const COUNTRY_KIND_ORDER: DotKind[] = ['missing', 'partial', 'shared', 'extra'];
 
@@ -203,7 +204,7 @@ function countryTint(features: FeatureCollection<Point, DotProps>['features']) {
     codes: [...kinds.keys()],
     color: ['match', ['get', 'code'], ...cases((k) => DOT_COLORS[k]), DOT_COLORS.missing] as unknown as maplibregl.ExpressionSpecification,
     opacity: ['match', ['get', 'code'],
-      ...cases((k) => (k === 'extra' ? COUNTRY_OPACITY * EXTRA_OPACITY : COUNTRY_OPACITY)), COUNTRY_OPACITY,
+      ...cases((k) => (k === 'extra' ? EXTRA_COUNTRY_OPACITY : COUNTRY_OPACITY)), COUNTRY_OPACITY,
     ] as unknown as maplibregl.ExpressionSpecification,
   };
 }
