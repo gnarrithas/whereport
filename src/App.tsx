@@ -22,6 +22,25 @@ import {
 
 type Mode = 'airport' | 'country';
 
+const HIGHLIGHT_KEY = 'whereport:highlight-countries';
+
+/** A remembered on/off setting; off when unset or storage is unavailable. */
+function loadSetting(key: string): boolean {
+  try {
+    return localStorage.getItem(key) === '1';
+  } catch {
+    return false;
+  }
+}
+
+function saveSetting(key: string, on: boolean) {
+  try {
+    localStorage.setItem(key, on ? '1' : '0');
+  } catch (err) {
+    console.warn(`Could not save ${key}`, err);
+  }
+}
+
 const label = (a: Airport) => `${a.city || a.name} — ${a.name} (${a.code})`;
 
 interface ComboProps<T> {
@@ -167,6 +186,8 @@ export default function App({ daily }: { daily: Daily }) {
   const [isDaily, setIsDaily] = useState(true);
   const [game, setGame] = useState<Game>(() => loadDailyGame(daily.day, daily.airport));
   const { feedback, countryKnown, wrongGuesses, wrongCountries, domesticShown } = game;
+  const [highlightCountries, setHighlightCountries] = useState(() => loadSetting(HIGHLIGHT_KEY));
+  useEffect(() => saveSetting(HIGHLIGHT_KEY, highlightCountries), [highlightCountries]);
   /** Dev mode: the answer shown on the map mid-game. */
   const [peeking, setPeeking] = useState(false);
   const [copied, setCopied] = useState<'yes' | 'failed' | null>(null);
@@ -299,6 +320,7 @@ export default function App({ daily }: { daily: Daily }) {
         domestic={domesticShown ? domestic : []}
         won={feedback?.kind === 'correct'}
         peek={DEV_MODE && peeking ? target : null}
+        highlightCountries={highlightCountries}
         onCandidateClick={fillFromMap}
       />
 
@@ -408,6 +430,11 @@ export default function App({ daily }: { daily: Daily }) {
         {countryKnown && !done && !domesticShown && (
           <button className="link" onClick={revealDomestic}>Reveal domestic flights</button>
         )}
+
+        <label className="toggle">
+          <input type="checkbox" checked={highlightCountries} onChange={(e) => setHighlightCountries(e.target.checked)} />
+          Highlight destination countries
+        </label>
 
         <div className="status">
           {feedback?.kind === 'correct' ? (

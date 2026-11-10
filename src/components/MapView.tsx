@@ -29,6 +29,8 @@ interface Props {
   won: boolean;
   /** Dev mode only: the answer, peeked at mid-game as a faint airport icon; else null. */
   peek: Airport | null;
+  /** Tint each destination's country with its dots' colour, much fainter. */
+  highlightCountries: boolean;
   /** Airports that could be the answer, marked with an airport icon once its country is known; else empty. */
   candidates: Airport[];
 }
@@ -51,6 +53,10 @@ export const DOT_COLORS: Record<DotKind, string> = {
 };
 
 const EXTRA_OPACITY = 0.55;
+/** Destination countries' tint: much fainter than the dots, fainter still for the guesses' routes alone. */
+const COUNTRY_OPACITY = 0.18;
+/** A country with dots of several kinds takes the first: what sets the answer apart from the guesses wins. */
+const COUNTRY_KIND_ORDER: DotKind[] = ['missing', 'partial', 'shared', 'extra'];
 
 const dotColor: maplibregl.ExpressionSpecification = [
   'match', ['get', 'kind'],
@@ -182,6 +188,26 @@ function radius(passengers: number): number {
 }
 
 /** Only the given countries' shapes, as a layer filter. */
+/** Each destination country's colour and opacity, from the kinds of dots in it. */
+function countryTint(features: FeatureCollection<Point, DotProps>['features']) {
+  const kinds = new Map<string, DotKind>();
+  for (const { properties: { index, kind } } of features) {
+    const code = airports[index].country;
+    const seen = kinds.get(code);
+    if (!seen || COUNTRY_KIND_ORDER.indexOf(kind) < COUNTRY_KIND_ORDER.indexOf(seen)) kinds.set(code, kind);
+  }
+  // A match expression needs at least one case; with none, the filter hides every country anyway.
+  if (!kinds.size) return { codes: [], color: DOT_COLORS.missing, opacity: 0 };
+  const cases = <T,>(value: (kind: DotKind) => T) => [...kinds].flatMap(([code, kind]) => [code, value(kind)]);
+  return {
+    codes: [...kinds.keys()],
+    color: ['match', ['get', 'code'], ...cases((k) => DOT_COLORS[k]), DOT_COLORS.missing] as unknown as maplibregl.ExpressionSpecification,
+    opacity: ['match', ['get', 'code'],
+      ...cases((k) => (k === 'extra' ? COUNTRY_OPACITY * EXTRA_OPACITY : COUNTRY_OPACITY)), COUNTRY_OPACITY,
+    ] as unknown as maplibregl.ExpressionSpecification,
+  };
+}
+
 function countryFilter(codes: string[]): maplibregl.FilterSpecification {
   return ['in', ['get', 'code'], ['literal', codes]];
 }
@@ -228,6 +254,11 @@ const withRouteLayers: maplibregl.TransformStyleFunction = (_previous, next) => 
   },
   layers: [
     ...next.layers,
+    {
+      // Under the wrong-country hatching, so a ruled-out country still reads as ruled out.
+      id: 'dest-country', type: 'fill', source: COUNTRIES, filter: countryFilter([]),
+      paint: { 'fill-opacity': 0 },
+    },
     {
       id: 'wrong-country-hatch', type: 'fill', source: COUNTRIES, filter: countryFilter([]),
       paint: { 'fill-pattern': HATCH },
@@ -385,7 +416,7 @@ export default function MapView(props: Props) {
     render(map, props);
   }, [
     props.origin, props.answer, props.destinations, props.compare, props.wrongCountries, props.candidates,
-    props.ruledOut, props.domestic, props.won, props.peek,
+    props.ruledOut, props.domestic, props.won, props.peek, props.highlightCountries,
   ]);
 
   useEffect(() => {
@@ -412,9 +443,14 @@ export default function MapView(props: Props) {
 }
 
 function render(
-  map: MlMap, { origin, answer, destinations, compare, wrongCountries, candidates, ruledOut, domestic, won, peek }: Props,
+  map: MlMap, { origin, answer, destinations, compare, wrongCountries, candidates, ruledOut, domestic, won, peek, highlightCountries }: Props,
 ) {
-  (map.getSource(DESTS) as GeoJSONSource).setData(routeDots(answer, destinations, compare));
+  const routes = routeDots(answer, destinations, compare);
+  (map.getSource(DESTS) as GeoJSONSource).setData(routes);
+  const tint = countryTint(highlightCountries ? routes.features : []);
+  map.setFilter('dest-country', countryFilter(tint.codes));
+  map.setPaintProperty('dest-country', 'fill-color', tint.color);
+  map.setPaintProperty('dest-country', 'fill-opacity', tint.opacity);
   const originDot = origin ? dots([{ airport: origin, r: 8 }]) : empty;
   for (const f of originDot.features) Object.assign(f.properties, { won });
   (map.getSource(ORIGIN) as GeoJSONSource).setData(originDot);
