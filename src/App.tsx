@@ -1,4 +1,5 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type KeyboardEvent, type ReactNode, type Ref } from 'react';
+import { createPortal } from 'react-dom';
 import '@fontsource/fredoka/700.css';
 import MapView from './components/MapView';
 import {
@@ -112,25 +113,23 @@ function Combo<T>({
 }
 
 /** The "?" button in the question card's corner and the how-to-play panel it opens. */
-/** A round button in the question card's corner, opening a panel; outside clicks and Escape close it. */
+/**
+ * A round button in the question card's corner, opening a panel in the middle of the screen over a dimmed
+ * backdrop. The panel is rendered into <body>: the card is transformed, which would pin it to the card instead.
+ * Clicking the backdrop, the close button or pressing Escape closes it.
+ */
 function Popover({ id, label, icon, children }: { id: string; label: string; icon: ReactNode; children: ReactNode }) {
   const [open, setOpen] = useState(false);
-  const ref = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (!open) return;
-    const onDown = (e: MouseEvent) => { if (!ref.current?.contains(e.target as Node)) setOpen(false); };
     const onKey = (e: globalThis.KeyboardEvent) => { if (e.key === 'Escape') setOpen(false); };
-    document.addEventListener('mousedown', onDown);
     document.addEventListener('keydown', onKey);
-    return () => {
-      document.removeEventListener('mousedown', onDown);
-      document.removeEventListener('keydown', onKey);
-    };
+    return () => document.removeEventListener('keydown', onKey);
   }, [open]);
 
   return (
-    <div className="popover" ref={ref}>
+    <>
       <button
         className="corner-toggle"
         aria-label={label}
@@ -140,13 +139,16 @@ function Popover({ id, label, icon, children }: { id: string; label: string; ico
       >
         {icon}
       </button>
-      {open && (
-        <div id={id} className="popover-panel" role="dialog" aria-label={label}>
-          <button className="popover-close" aria-label="Close" onClick={() => setOpen(false)}>×</button>
-          {children}
-        </div>
+      {open && createPortal(
+        <div className="backdrop" onMouseDown={(e) => { if (e.target === e.currentTarget) setOpen(false); }}>
+          <div id={id} className="popover-panel" role="dialog" aria-modal="true" aria-label={label}>
+            <button className="popover-close" aria-label="Close" onClick={() => setOpen(false)} autoFocus>×</button>
+            {children}
+          </div>
+        </div>,
+        document.body,
       )}
-    </div>
+    </>
   );
 }
 
