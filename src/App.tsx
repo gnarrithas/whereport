@@ -15,15 +15,10 @@ import {
 } from './data/airports';
 import type { Daily } from './data/daily';
 import { DEV_MODE } from './mode';
-import { MARKS, copyText, shareText, siteUrl, type Mark } from './share';
-
-type Feedback =
-  | { kind: 'wrong'; guess: Airport }
-  | { kind: 'wrong-country'; guess: Country }
-  | { kind: 'right-country' }
-  | { kind: 'correct' }
-  | { kind: 'revealed' }
-  | null;
+import { copyText, shareText, siteUrl } from './share';
+import {
+  guessCount, isOver, loadDailyGame, markOf, newGame, play, saveDailyGame, type Game, type Move,
+} from './game';
 
 type Mode = 'airport' | 'country';
 
@@ -165,26 +160,22 @@ function Help() {
   );
 }
 
-/** Starts on today's airport; "Next airport" then moves on to random ones. */
+/** Starts on today's airport, as far as it was played before; "Next airport" then moves on to random ones. */
 export default function App({ daily }: { daily: Daily }) {
   const [target, setTarget] = useState(daily.airport);
-  /** Still on today's puzzle, the only one that can be shared. */
+  /** Still on today's puzzle, the only one that is saved and, outside dev mode, shared. */
   const [isDaily, setIsDaily] = useState(true);
-  const [marks, setMarks] = useState<Mark[]>([]);
+  const [game, setGame] = useState<Game>(() => loadDailyGame(daily.day, daily.airport));
+  const { feedback, countryKnown, wrongGuesses, wrongCountries, domesticShown } = game;
   /** Dev mode: the answer shown on the map mid-game. */
   const [peeking, setPeeking] = useState(false);
   const [copied, setCopied] = useState<'yes' | 'failed' | null>(null);
-  const [feedback, setFeedback] = useState<Feedback>(null);
-  const [attempts, setAttempts] = useState(0);
   const [query, setQuery] = useState('');
   const [mode, setMode] = useState<Mode>('airport');
-  const [countryKnown, setCountryKnown] = useState(false);
-  const [wrongGuesses, setWrongGuesses] = useState<Airport[]>([]);
-  const [wrongCountries, setWrongCountries] = useState<string[]>([]);
-  const [diff, setDiff] = useState<Airport[]>([]);
+  // A restored game compares with its last guess, as it did when that guess was made.
+  const [diff, setDiff] = useState<Airport[]>(() => (feedback?.kind === 'wrong' ? [feedback.guess] : []));
   /** An airport clicked on the map, filled into the answer bar and waiting for Enter or Guess. */
   const [pending, setPending] = useState<Airport | null>(null);
-  const [domesticShown, setDomesticShown] = useState(false);
   const answerRef = useRef<HTMLInputElement>(null);
   // The logo is vertically centred on the answer row (or the Next button), which moves as hints appear.
   const rowRef = useRef<HTMLDivElement>(null);
@@ -213,7 +204,22 @@ export default function App({ daily }: { daily: Daily }) {
     [query, countryKnown, candidates],
   );
   const countryMatches = useMemo(() => searchCountries(query), [query]);
-  const done = feedback?.kind === 'correct' || feedback?.kind === 'revealed';
+  const done = isOver(game);
+  const attempts = guessCount(game);
+
+  useEffect(() => {
+    if (isDaily) saveDailyGame(daily.day, daily.airport, game);
+  }, [isDaily, daily, game]);
+
+  /** Plays a move; returns the game after it, or null if it couldn't be made. */
+  const move = (m: Move) => {
+    const next = play(game, m, target);
+    if (next) {
+      setGame(next);
+      setCopied(null);
+    }
+    return next;
+  };
   const targetCountry = countryName(target.country);
 
   const switchMode = (m: Mode) => {
@@ -224,16 +230,8 @@ export default function App({ daily }: { daily: Daily }) {
   const guessAirport = (airport: Airport) => {
     setQuery('');
     setPending(null);
-    setAttempts((n) => n + 1);
-    addMark(airport === target ? MARKS.rightAirport : MARKS.wrongAirport);
-    if (airport === target) {
-      setFeedback({ kind: 'correct' });
-      setDiff([]);
-      return;
-    }
-    setFeedback({ kind: 'wrong', guess: airport });
-    setWrongGuesses((list) => (list.includes(airport) ? list : [...list, airport]));
-    setDiff([airport]);
+    if (!move({ kind: 'airport', code: airport.code })) return;
+    setDiff(airport === target ? [] : [airport]);
   };
 
   const fillFromMap = (airport: Airport) => {
@@ -254,39 +252,19 @@ export default function App({ daily }: { daily: Daily }) {
 
   const guessCountry = (country: Country) => {
     setQuery('');
-    setAttempts((n) => n + 1);
-    addMark(country.code === target.country ? MARKS.rightCountry : MARKS.wrongCountry);
-    if (country.code === target.country) {
-      setCountryKnown(true);
-      setMode('airport');
-      setFeedback({ kind: 'right-country' });
-    } else {
-      setFeedback({ kind: 'wrong-country', guess: country });
-      setWrongCountries((list) => (list.includes(country.code) ? list : [...list, country.code]));
-    }
+    if (move({ kind: 'country', code: country.code })?.countryKnown) setMode('airport');
   };
 
-  const addMark = (mark: Mark) => {
-    setCopied(null);
-    setMarks((list) => [...list, mark]);
-  };
+  const giveUp = () => move({ kind: 'give-up' });
 
-  const giveUp = () => {
-    addMark(MARKS.gaveUp);
-    setFeedback({ kind: 'revealed' });
-  };
-
-  const revealDomestic = () => {
-    addMark(MARKS.domesticHint);
-    setDomesticShown(true);
-  };
+  const revealDomestic = () => move({ kind: 'hint' });
 
   /** Today's puzzle can be shared; in dev mode, any game at any point. */
   const shareable = isDaily || DEV_MODE;
   const shareLabel = copied === 'yes' ? 'Copied!' : copied === 'failed' ? "Couldn't copy" : 'Share';
 
   const share = () => {
-    copyText(shareText(daily.day, marks, siteUrl())).then(
+    copyText(shareText(daily.day, game.moves.map((m) => markOf(m, target)), siteUrl())).then(
       () => setCopied('yes'),
       (err) => {
         console.error(err);
@@ -298,18 +276,12 @@ export default function App({ daily }: { daily: Daily }) {
   const next = () => {
     setTarget((t) => randomAirport(t));
     setIsDaily(false);
-    setMarks([]);
+    setGame(newGame());
     setCopied(null);
     setPeeking(false);
-    setFeedback(null);
-    setAttempts(0);
     setQuery('');
     setMode('airport');
-    setCountryKnown(false);
-    setWrongGuesses([]);
     setPending(null);
-    setDomesticShown(false);
-    setWrongCountries([]);
     setDiff([]);
   };
 
