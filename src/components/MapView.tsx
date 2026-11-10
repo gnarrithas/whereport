@@ -76,6 +76,9 @@ const DOMESTIC_COLOR = '#9333ea';
 const GUESS_RADIUS = 5;
 // Not plain 'airport': the basemap's sprite already has an image by that name.
 const AIRPORT = 'daily-map-airport';
+/** Airport icons (96px image at pixel ratio 2): on the world view just a bit larger than a destination dot, growing as you zoom in. */
+const AIRPORT_ICON_SIZE: maplibregl.ExpressionSpecification =
+  ['interpolate', ['exponential', 1.5], ['zoom'], 1, 0.2, 4, 0.35, 7, 0.6, 10, 1];
 const WRONG_RED = '#dc2626';
 const BASEMAP_STYLE = 'https://tiles.openfreemap.org/styles/liberty';
 const PULSE_MS = 1600;
@@ -260,8 +263,7 @@ const withRouteLayers: maplibregl.TransformStyleFunction = (_previous, next) => 
       id: 'candidate-icon', type: 'symbol', source: CANDIDATES,
       layout: {
         'icon-image': AIRPORT, 'icon-allow-overlap': true, 'icon-ignore-placement': true,
-        // Image is 96px: 14px on the world view so a country's icons don't merge, growing as you zoom in.
-        'icon-size': ['interpolate', ['exponential', 1.5], ['zoom'], 1, 0.15, 4, 0.3, 7, 0.6, 10, 1],
+        'icon-size': AIRPORT_ICON_SIZE,
       },
     },
     {
@@ -291,8 +293,7 @@ const withRouteLayers: maplibregl.TransformStyleFunction = (_previous, next) => 
       id: 'peek-icon', type: 'symbol', source: PEEK,
       layout: {
         'icon-image': AIRPORT, 'icon-allow-overlap': true, 'icon-ignore-placement': true,
-        // On the world view just a bit larger than a destination dot, growing as you zoom in.
-        'icon-size': ['interpolate', ['exponential', 1.5], ['zoom'], 1, 0.2, 4, 0.35, 7, 0.6, 10, 1],
+        'icon-size': AIRPORT_ICON_SIZE,
       },
       paint: { 'icon-opacity': 0.4 },
     },
