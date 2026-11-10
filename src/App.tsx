@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState, type KeyboardEvent, type ReactNode, type Ref } from 'react';
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, type KeyboardEvent, type ReactNode, type Ref } from 'react';
 import '@fontsource/fredoka/700.css';
 import MapView, { DOT_COLORS } from './components/MapView';
 import {
@@ -124,6 +124,20 @@ export default function App() {
   const [pending, setPending] = useState<Airport | null>(null);
   const [domesticShown, setDomesticShown] = useState(false);
   const answerRef = useRef<HTMLInputElement>(null);
+  // The logo is vertically centred on the answer row (or the Next button), which moves as hints appear.
+  const rowRef = useRef<HTMLDivElement>(null);
+  const [logoY, setLogoY] = useState<number | null>(null);
+  const [, setResized] = useState(0);
+  useLayoutEffect(() => {
+    const row = rowRef.current?.getBoundingClientRect();
+    const y = row ? Math.round(row.top + row.height / 2) : null;
+    if (y !== logoY) setLogoY(y);
+  });
+  useEffect(() => {
+    const onResize = () => setResized((n) => n + 1);
+    window.addEventListener('resize', onResize);
+    return () => window.removeEventListener('resize', onResize);
+  }, []);
 
   const destinations = useMemo(() => destinationsFrom(target), [target]);
   const domestic = useMemo(() => domesticFrom(target), [target]);
@@ -204,7 +218,7 @@ export default function App() {
 
   return (
     <div className="app">
-      <h1 className="brand">Whereport</h1>
+      <h1 className="brand" style={logoY === null ? undefined : { top: logoY }}>Whereport</h1>
       <MapView
         origin={done ? target : null}
         answer={target}
@@ -264,11 +278,11 @@ export default function App() {
         )}
 
         {done ? (
-          <div className="actions">
+          <div className="actions" ref={rowRef}>
             <button className="primary" onClick={next} autoFocus>Next airport</button>
           </div>
         ) : (
-          <div className="guess">
+          <div className="guess" ref={rowRef}>
             {mode === 'country' ? (
               <Combo
                 key="country"
