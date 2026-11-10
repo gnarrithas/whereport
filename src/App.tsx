@@ -473,7 +473,10 @@ export default function App({ daily }: { daily: Daily }) {
         )}
 
         {countryKnown && !done && !domesticShown && (
-          <button className="link" onClick={revealDomestic}>Reveal domestic flights</button>
+          <div className="hint">
+            <strong>Get a hint:</strong>{' '}
+            <button className="link" onClick={revealDomestic}>Reveal domestic flights</button>
+          </div>
         )}
 
         <div className="footer">
