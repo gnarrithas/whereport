@@ -198,13 +198,16 @@ function countryTint(features: FeatureCollection<Point, DotProps>['features']) {
     if (!seen || COUNTRY_KIND_ORDER.indexOf(kind) < COUNTRY_KIND_ORDER.indexOf(seen)) kinds.set(code, kind);
   }
   // A match expression needs at least one case; with none, the filter hides every country anyway.
-  if (!kinds.size) return { codes: [], color: DOT_COLORS.missing, opacity: 0 };
+  if (!kinds.size) return { codes: [], color: DOT_COLORS.missing, opacity: 0, pattern: countryDotsImage('missing') };
   const cases = <T,>(value: (kind: DotKind) => T) => [...kinds].flatMap(([code, kind]) => [code, value(kind)]);
   return {
     codes: [...kinds.keys()],
     color: ['match', ['get', 'code'], ...cases((k) => DOT_COLORS[k]), DOT_COLORS.missing] as unknown as maplibregl.ExpressionSpecification,
     opacity: ['match', ['get', 'code'],
       ...cases((k) => (k === 'extra' ? EXTRA_COUNTRY_OPACITY : COUNTRY_OPACITY)), COUNTRY_OPACITY,
+    ] as unknown as maplibregl.ExpressionSpecification,
+    pattern: ['match', ['get', 'code'],
+      ...cases(countryDotsImage), countryDotsImage('missing'),
     ] as unknown as maplibregl.ExpressionSpecification,
   };
 }
@@ -233,7 +236,31 @@ function hatchImage(): ImageData {
 }
 
 /** Images the style asks for by name, drawn on first use. */
-const IMAGES: Record<string, () => ImageData> = { [HATCH]: hatchImage };
+/** The dot pattern over a destination country, in its dots' colour. */
+const countryDotsImage = (kind: DotKind) => `country-dots-${kind}`;
+
+/** A tile of staggered dots, seamless when repeated, for a destination country of the given kind. */
+function dotsImage(kind: DotKind): ImageData {
+  const ratio = 2;
+  const size = 8 * ratio;
+  const ctx = document.createElement('canvas').getContext('2d')!;
+  ctx.canvas.width = ctx.canvas.height = size;
+  ctx.fillStyle = DOT_COLORS[kind];
+  ctx.globalAlpha = kind === 'extra' ? 0.7 : 0.8;
+  ctx.beginPath();
+  // One dot in the corner (its quarters in all four corners, so it is whole once tiled) and one in the middle.
+  for (const [x, y] of [[0, 0], [size, 0], [0, size], [size, size], [size / 2, size / 2]]) {
+    ctx.moveTo(x + ratio, y);
+    ctx.arc(x, y, 1 * ratio, 0, 2 * Math.PI);
+  }
+  ctx.fill();
+  return ctx.getImageData(0, 0, size, size);
+}
+
+const IMAGES: Record<string, () => ImageData> = {
+  [HATCH]: hatchImage,
+  ...Object.fromEntries(COUNTRY_KIND_ORDER.map((kind) => [countryDotsImage(kind), () => dotsImage(kind)])),
+};
 
 /** Image files the style asks for by name, served from public/; all drawn at half their pixel size. */
 const IMAGE_FILES: Record<string, string> = { [AIRPORT]: `${import.meta.env.BASE_URL}icons/airport.png` };
@@ -259,6 +286,11 @@ const withRouteLayers: maplibregl.TransformStyleFunction = (_previous, next) => 
       // Under the wrong-country hatching, so a ruled-out country still reads as ruled out.
       id: 'dest-country', type: 'fill', source: COUNTRIES, filter: countryFilter([]),
       paint: { 'fill-opacity': 0 },
+    },
+    {
+      // A dot pattern over the tint, so the countries read at a glance.
+      id: 'dest-country-dots', type: 'fill', source: COUNTRIES, filter: countryFilter([]),
+      paint: { 'fill-pattern': countryDotsImage('missing') },
     },
     {
       id: 'wrong-country-hatch', type: 'fill', source: COUNTRIES, filter: countryFilter([]),
@@ -450,6 +482,8 @@ function render(
   (map.getSource(DESTS) as GeoJSONSource).setData(routes);
   const tint = countryTint(highlightCountries ? routes.features : []);
   map.setFilter('dest-country', countryFilter(tint.codes));
+  map.setFilter('dest-country-dots', countryFilter(tint.codes));
+  map.setPaintProperty('dest-country-dots', 'fill-pattern', tint.pattern);
   map.setPaintProperty('dest-country', 'fill-color', tint.color);
   map.setPaintProperty('dest-country', 'fill-opacity', tint.opacity);
   const originDot = origin ? dots([{ airport: origin, r: 8 }]) : empty;
