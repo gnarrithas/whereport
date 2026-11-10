@@ -24,28 +24,37 @@ class Summary:
     skipped: int
 
 
-def directed_destinations(airports: dict[str, list], routes: dict[str, list]) -> tuple[list[dict[int, int]], int]:
-    """Per airport, its foreign direct-flight destinations mapped to passengers per year flown there.
+Destinations = list[dict[int, int]]
 
-    A route a-b is a flight a->b only when its "ab" traffic is positive (b->a: "ba"). Domestic routes are left out.
+
+def directed_destinations(airports: dict[str, list], routes: dict[str, list]) -> tuple[Destinations, Destinations, int]:
+    """Per airport, its foreign and its domestic direct-flight destinations mapped to passengers per year.
+
+    A route a-b is a flight a->b only when its "ab" traffic is positive (b->a: "ba"). Also returns how many
+    routes were skipped as invalid or duplicate.
     """
     count = len(airports["code"])
     countries = airports["country"]
-    destinations: list[dict[int, int]] = [{} for _ in range(count)]
+    foreign: Destinations = [{} for _ in range(count)]
+    domestic: Destinations = [{} for _ in range(count)]
     skipped = 0
     for a, b, ab, ba in zip(routes["a"], routes["b"], routes["ab"], routes["ba"]):
         if not (0 <= a < count and 0 <= b < count) or a == b:
             skipped += 1
             continue
-        if countries[a] == countries[b]:
-            continue
+        destinations = domestic if countries[a] == countries[b] else foreign
         for origin, dest, passengers in ((a, b, ab), (b, a, ba)):
             passengers = int(passengers or 0)
             if passengers > 0:
                 if dest in destinations[origin]:
                     skipped += 1
                 destinations[origin][dest] = max(passengers, destinations[origin].get(dest, 0))
-    return destinations, skipped
+    return foreign, domestic, skipped
+
+
+def by_traffic(dests: dict[int, int]) -> list[list[int]]:
+    """[[destination index, passengers per year], ...], busiest first."""
+    return [[d, p] for d, p in sorted(dests.items(), key=lambda item: -item[1])]
 
 
 def playable_airports(destinations: list[dict[int, int]]) -> tuple[list[int], int]:
@@ -76,8 +85,9 @@ def build(source: dict[str, object]) -> tuple[dict[str, object], Summary]:
         raise ValueError(f"missing columns: {', '.join(missing)}")
 
     count = len(airports["code"])
-    destinations, skipped = directed_destinations(airports, routes)
+    destinations, domestic, skipped = directed_destinations(airports, routes)
     playable, ambiguous = playable_airports(destinations)
+    answers = set(playable)
 
     out = {
         "built": source.get("built", ""),
@@ -89,9 +99,12 @@ def build(source: dict[str, object]) -> tuple[dict[str, object], Summary]:
             for i in range(count)
         ],
         # per airport: [[destination index, passengers per year flown there], ...], busiest first
-        "destinations": [
-            [[d, p] for d, p in sorted(dests.items(), key=lambda item: -item[1])]
-            for dests in destinations
+        "destinations": [by_traffic(dests) for dests in destinations],
+        # per airport, the same for domestic flights, kept only between possible answers: the hint shows an
+        # answer's domestic flights to airports that could themselves be the answer
+        "domestic": [
+            by_traffic({d: p for d, p in dests.items() if d in answers}) if i in answers else []
+            for i, dests in enumerate(domestic)
         ],
         # indices of airports whose destinations identify them unambiguously
         "unique": playable,

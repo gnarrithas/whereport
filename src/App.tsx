@@ -5,6 +5,7 @@ import {
   countryName,
   datasetDate,
   destinationsFrom,
+  domesticFrom,
   playableIn,
   randomAirport,
   searchAirports,
@@ -121,9 +122,11 @@ export default function App() {
   const [diff, setDiff] = useState<Airport[]>([]);
   /** An airport clicked on the map, filled into the answer bar and waiting for Enter or Guess. */
   const [pending, setPending] = useState<Airport | null>(null);
+  const [domesticShown, setDomesticShown] = useState(false);
   const answerRef = useRef<HTMLInputElement>(null);
 
   const destinations = useMemo(() => destinationsFrom(target), [target]);
+  const domestic = useMemo(() => domesticFrom(target), [target]);
   // Once the country is known, the map marks and the dropdown offers only the airports that could be the answer.
   const candidates = useMemo(
     () => (countryKnown ? playableIn(target.country) : []),
@@ -194,6 +197,7 @@ export default function App() {
     setCountryKnown(false);
     setWrongGuesses([]);
     setPending(null);
+    setDomesticShown(false);
     setWrongCountries([]);
     setDiff([]);
   };
@@ -209,6 +213,7 @@ export default function App() {
         wrongCountries={wrongCountries}
         candidates={candidates}
         ruledOut={wrongGuesses}
+        domestic={domesticShown && !done ? domestic : []}
         won={feedback?.kind === 'correct'}
         onCandidateClick={fillFromMap}
       />
@@ -303,6 +308,10 @@ export default function App() {
             )}
             <button onClick={() => setFeedback({ kind: 'revealed' })}>Give up</button>
           </div>
+        )}
+
+        {countryKnown && !done && !domesticShown && (
+          <button className="link" onClick={() => setDomesticShown(true)}>Reveal domestic flights</button>
         )}
 
         <div className="status">

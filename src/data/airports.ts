@@ -40,6 +40,15 @@ export function destinationsFrom(airport: Airport): Destination[] {
   return destinations[airport.index];
 }
 
+const domestic: Destination[][] = (data.domestic as DestinationRow[][]).map((rows) =>
+  rows.map(([index, passengers]) => ({ airport: airports[index], passengers })),
+);
+
+/** Same-country airports reachable by a direct flight that could themselves be an answer, busiest first. */
+export function domesticFrom(airport: Airport): Destination[] {
+  return domestic[airport.index];
+}
+
 /** Airports whose destinations identify them unambiguously, chosen offline by scripts/build_airports.py. */
 const unique: Airport[] = (data.unique as number[]).map((index) => airports[index]);
 
