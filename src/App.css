@@ -141,29 +141,30 @@ button.link:hover { background: none; color: var(--accent-hover); }
   background: rgba(0, 0, 0, 0.35);
 }
 .popover-panel {
-  position: relative; width: min(380px, 100%); max-height: calc(100vh - 32px); overflow-y: auto; box-sizing: border-box;
+  position: relative; width: min(440px, 100%); max-height: calc(100vh - 32px); overflow-y: auto; box-sizing: border-box;
   color: var(--text);
-  padding: 14px 18px; border-radius: 12px; background: var(--surface);
-  box-shadow: 0 10px 30px var(--shadow); font-size: 0.9rem; line-height: 1.45;
+  padding: 24px 28px; border-radius: 14px; background: var(--surface);
+  box-shadow: 0 10px 30px var(--shadow); font-size: 0.92rem; line-height: 1.55;
 }
-.popover-panel h2 { margin: 0 0 6px; font-size: 1.05rem; }
-.popover-panel p { margin: 0 0 8px; }
-.popover-panel ul { margin: 0; padding-left: 18px; display: flex; flex-direction: column; gap: 6px; }
+.popover-panel h2 { margin: 0 0 14px; font-size: 1.15rem; }
+.popover-panel p { margin: 0 0 12px; }
+.popover-panel ul { margin: 0; padding-left: 20px; display: flex; flex-direction: column; gap: 10px; }
 .popover-close {
-  position: absolute; top: 6px; right: 8px; padding: 0 6px; border: 0; background: none;
+  position: absolute; top: 14px; right: 16px; padding: 0 6px; border: 0; background: none;
   font-size: 1.3rem; line-height: 1; color: var(--faint);
 }
 .popover-close:hover { background: none; color: var(--text); }
 
 /* Settings: a label on the left, its switch on the right; the whole row is the button. */
 .setting {
-  display: flex; align-items: center; justify-content: space-between; gap: 16px; width: 100%;
-  padding: 10px 0; border: 0; border-top: 1px solid var(--rule); border-radius: 0;
+  display: flex; align-items: center; justify-content: space-between; gap: 24px; width: 100%;
+  padding: 14px 0; border: 0; border-top: 1px solid var(--rule); border-radius: 0;
   background: none; text-align: left; font-size: 0.9rem;
 }
-.popover-panel h2 + .setting { border-top: 0; }
+.popover-panel h2 + .setting { border-top: 0; padding-top: 4px; }
+.setting:last-child { padding-bottom: 0; }
 .setting:hover { background: none; }
-.setting-sub { display: block; font-size: 0.82rem; color: var(--muted); }
+.setting-sub { display: block; margin-top: 2px; font-size: 0.84rem; color: var(--muted); }
 .switch {
   position: relative; flex: none; width: 36px; height: 20px; border-radius: 10px;
   background: var(--border); transition: background 0.15s;
