@@ -110,6 +110,64 @@ function Combo<T>({
   );
 }
 
+/** The "?" button in the question card's corner and the how-to-play panel it opens. */
+function Help() {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    const onDown = (e: MouseEvent) => { if (!ref.current?.contains(e.target as Node)) setOpen(false); };
+    const onKey = (e: globalThis.KeyboardEvent) => { if (e.key === 'Escape') setOpen(false); };
+    document.addEventListener('mousedown', onDown);
+    document.addEventListener('keydown', onKey);
+    return () => {
+      document.removeEventListener('mousedown', onDown);
+      document.removeEventListener('keydown', onKey);
+    };
+  }, [open]);
+
+  return (
+    <div className="help" ref={ref}>
+      <button
+        className="help-toggle"
+        aria-label="How to play"
+        aria-expanded={open}
+        aria-controls="how-to-play"
+        onClick={() => setOpen((o) => !o)}
+      >
+        ?
+      </button>
+      {open && (
+        <div id="how-to-play" className="help-panel" role="dialog" aria-label="How to play">
+          <button className="help-close" aria-label="Close" onClick={() => setOpen(false)}>×</button>
+          <h2>How to play</h2>
+          <p>
+            The blinking dots are every airport abroad that one mystery airport flies to directly.
+            Work out which airport it is.
+          </p>
+          <ul>
+            <li>Type a city, airport name or code and pick it from the list to guess.</li>
+            <li>
+              Stuck? <strong>Guess the country</strong> first. Get it right and the airports that could be
+              the answer appear on the map: click one to fill it in, then press Enter or Guess.
+              You can also <strong>reveal domestic flights</strong> for a further hint.
+            </li>
+            <li>
+              Wrong airports turn into red dots, wrong countries are hatched in red.
+            </li>
+            <li>
+              Tick wrong guesses in the panel bottom-left to compare their routes with the mystery airport's:
+              green — they all fly there, blue — only the mystery airport does, light blue — some guesses do,
+              grey — only the guesses do.
+            </li>
+          </ul>
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function App() {
   const [target, setTarget] = useState(() => randomAirport());
   const [feedback, setFeedback] = useState<Feedback>(null);
@@ -269,6 +327,7 @@ export default function App() {
       )}
 
       <div className="card game">
+        <Help />
         <div className="prompt">
           Which airport has direct international flights to these {destinations.length} destinations?
         </div>
