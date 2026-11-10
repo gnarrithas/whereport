@@ -47,7 +47,7 @@ interface DotProps {
 
 export const DOT_COLORS: Record<DotKind, string> = {
   shared: '#16a34a',
-  partial: '#38bdf8',
+  partial: '#f59e0b',
   missing: '#2563eb',
   extra: '#9ca3af',
 };
@@ -106,7 +106,7 @@ function dots(items: { airport: Airport; r: number; kind?: DotKind }[]): Feature
 
 /**
  * Dots for the answer's destinations, diffed against the ticked guesses: the answer's routes every guess
- * also flies turn green, those only some fly turn light blue, the rest stay blue, and routes any guess
+ * also flies turn green, those only some fly turn amber, the rest stay blue, and routes any guess
  * flies but the answer lacks are added in faded grey. Routes between the guesses themselves are dropped, and the answer is
  * never drawn, even when a guess flies there, so the diff cannot give it away.
  */
