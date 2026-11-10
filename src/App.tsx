@@ -431,30 +431,31 @@ export default function App({ daily }: { daily: Daily }) {
           <button className="link" onClick={revealDomestic}>Reveal domestic flights</button>
         )}
 
-        <label className="toggle">
-          <input type="checkbox" checked={highlightCountries} onChange={(e) => setHighlightCountries(e.target.checked)} />
-          Highlight destination countries
-        </label>
-
-        <div className="status">
-          {feedback?.kind === 'correct' ? (
-            <span className="good">
-              Correct! It's {label(target)}
-              {attempts > 1 && ` — found in ${attempts} guesses`}.
-            </span>
-          ) : feedback?.kind === 'revealed' ? (
-            <span>The answer was {label(target)}.</span>
-          ) : feedback?.kind === 'wrong' ? (
-            <span className="bad">It's not {feedback.guess.name} (<strong>{feedback.guess.code}</strong>).</span>
-          ) : feedback?.kind === 'wrong-country' ? (
-            <span className="bad">It's not in <strong>{feedback.guess.name}</strong>.</span>
-          ) : feedback?.kind === 'right-country' ? (
-            <span className="good">Correct, it's in {targetCountry}! Now pick the airport.</span>
-          ) : mode === 'country' ? (
-            <>Pick the country the airport is in.</>
-          ) : (
-            <>Pick an airport from the list, or guess the country first. Routes as of {datasetDate}.</>
-          )}
+        <div className="footer">
+          <div className="status">
+            {feedback?.kind === 'correct' ? (
+              <span className="good">
+                Correct! It's {label(target)}
+                {attempts > 1 && ` — found in ${attempts} guesses`}.
+              </span>
+            ) : feedback?.kind === 'revealed' ? (
+              <span>The answer was {label(target)}.</span>
+            ) : feedback?.kind === 'wrong' ? (
+              <span className="bad">It's not {feedback.guess.name} (<strong>{feedback.guess.code}</strong>).</span>
+            ) : feedback?.kind === 'wrong-country' ? (
+              <span className="bad">It's not in <strong>{feedback.guess.name}</strong>.</span>
+            ) : feedback?.kind === 'right-country' ? (
+              <span className="good">Correct, it's in {targetCountry}! Now pick the airport.</span>
+            ) : mode === 'country' ? (
+              <>Pick the country the airport is in.</>
+            ) : (
+              <>Pick an airport from the list, or guess the country first. Routes as of {datasetDate}.</>
+            )}
+          </div>
+          <label className="toggle">
+            <input type="checkbox" checked={highlightCountries} onChange={(e) => setHighlightCountries(e.target.checked)} />
+            Highlight destination countries
+          </label>
         </div>
       </div>
     </div>

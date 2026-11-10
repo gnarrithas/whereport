@@ -137,6 +137,10 @@ button.link:hover { background: none; color: #1d4ed8; }
 .dev-tools { position: absolute; top: 10px; right: 52px; z-index: 2; display: flex; gap: 6px; }
 .dev-tools button { padding: 4px 12px; font-size: 0.85rem; border-style: dashed; }
 
-/* Map options, under the answer row. */
+/* Map options, right of the feedback line. */
 .toggle { display: flex; align-items: center; gap: 6px; font-size: 0.9rem; color: #555; cursor: pointer; user-select: none; }
 .toggle input { margin: 0; cursor: pointer; }
+/* Feedback on the left, map options on the right; they stack when the line is too narrow. */
+.footer { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 4px 16px; }
+.footer .status { flex: 1 1 auto; flex-basis: auto; }
+.footer .toggle { margin-left: auto; white-space: nowrap; }
