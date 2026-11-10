@@ -134,7 +134,5 @@ button.link:hover { background: none; color: #1d4ed8; }
 .swatch.ring { background: #dc2626; border: 1.5px solid #111827; box-shadow: none; width: 10px; height: 10px; }
 
 /* Dev mode only: top right, left of the map's zoom buttons. */
-.dev-reveal {
-  position: absolute; top: 10px; right: 52px; z-index: 2;
-  padding: 4px 12px; font-size: 0.85rem; border-style: dashed;
-}
+.dev-tools { position: absolute; top: 10px; right: 52px; z-index: 2; display: flex; gap: 6px; }
+.dev-tools button { padding: 4px 12px; font-size: 0.85rem; border-style: dashed; }

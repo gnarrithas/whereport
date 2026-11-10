@@ -225,6 +225,7 @@ export default function App({ daily }: { daily: Daily }) {
     setQuery('');
     setPending(null);
     setAttempts((n) => n + 1);
+    setCopied(null);
     setMarks((list) => [...list, airport === target ? MARKS.rightAirport : MARKS.wrongAirport]);
     if (airport === target) {
       setFeedback({ kind: 'correct' });
@@ -255,6 +256,7 @@ export default function App({ daily }: { daily: Daily }) {
   const guessCountry = (country: Country) => {
     setQuery('');
     setAttempts((n) => n + 1);
+    setCopied(null);
     setMarks((list) => [...list, country.code === target.country ? MARKS.rightCountry : MARKS.wrongCountry]);
     if (country.code === target.country) {
       setCountryKnown(true);
@@ -265,6 +267,10 @@ export default function App({ daily }: { daily: Daily }) {
       setWrongCountries((list) => (list.includes(country.code) ? list : [...list, country.code]));
     }
   };
+
+  /** Today's puzzle can be shared; in dev mode, any game at any point. */
+  const shareable = isDaily || DEV_MODE;
+  const shareLabel = copied === 'yes' ? 'Copied!' : copied === 'failed' ? "Couldn't copy" : 'Share';
 
   const share = () => {
     copyText(shareText(daily.day, marks, siteUrl())).then(
@@ -312,9 +318,12 @@ export default function App({ daily }: { daily: Daily }) {
       />
 
       {DEV_MODE && !done && (
-        <button className="dev-reveal" onClick={() => setPeeking((p) => !p)} aria-pressed={peeking}>
-          {peeking ? `Hide ${target.code}` : 'Reveal'}
-        </button>
+        <div className="dev-tools">
+          <button onClick={share}>{shareLabel}</button>
+          <button onClick={() => setPeeking((p) => !p)} aria-pressed={peeking}>
+            {peeking ? `Hide ${target.code}` : 'Reveal'}
+          </button>
+        </div>
       )}
 
       {wrongGuesses.length > 0 && (
@@ -365,10 +374,8 @@ export default function App({ daily }: { daily: Daily }) {
 
         {done ? (
           <div className="actions" ref={rowRef}>
-            {isDaily && <button className="primary" onClick={share} autoFocus>
-                {copied === 'yes' ? 'Copied!' : copied === 'failed' ? "Couldn't copy" : 'Share'}
-              </button>}
-            <button className={isDaily ? undefined : 'primary'} onClick={next} autoFocus={!isDaily}>Next airport</button>
+            {shareable && <button className="primary" onClick={share} autoFocus>{shareLabel}</button>}
+            <button className={shareable ? undefined : 'primary'} onClick={next} autoFocus={!shareable}>Next airport</button>
           </div>
         ) : (
           <div className="guess" ref={rowRef}>
