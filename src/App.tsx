@@ -1,4 +1,5 @@
 import { useMemo, useRef, useState, type KeyboardEvent, type ReactNode, type Ref } from 'react';
+import '@fontsource/fredoka/700.css';
 import MapView, { DOT_COLORS } from './components/MapView';
 import {
   countryName,
@@ -200,6 +201,7 @@ export default function App() {
 
   return (
     <div className="app">
+      <h1 className="brand">Whereport</h1>
       <MapView
         origin={done ? target : null}
         answer={target}
