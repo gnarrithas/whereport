@@ -180,40 +180,37 @@ const cog = (
   </svg>
 );
 
-const THEMES: { value: Theme; label: string }[] = [
-  { value: 'auto', label: 'Auto' },
-  { value: 'light', label: 'Light' },
-  { value: 'dark', label: 'Dark' },
-];
+/** An on/off switch: on to the right. The whole row toggles it. */
+function Switch({ label, sub, on, onChange }: { label: string; sub?: string; on: boolean; onChange: (on: boolean) => void }) {
+  return (
+    <button className="setting switch-row" role="switch" aria-checked={on} onClick={() => onChange(!on)}>
+      <span className="setting-text">
+        {label}
+        {sub && <span className="setting-sub">{sub}</span>}
+      </span>
+      <span className="switch" aria-hidden="true" />
+    </button>
+  );
+}
 
 interface SettingsProps {
-  theme: Theme;
-  onTheme: (theme: Theme) => void;
+  dark: boolean;
+  onDark: (on: boolean) => void;
   colorblind: boolean;
   onColorblind: (on: boolean) => void;
 }
 
-function Settings({ theme, onTheme, colorblind, onColorblind }: SettingsProps) {
+function Settings({ dark, onDark, colorblind, onColorblind }: SettingsProps) {
   return (
     <Popover id="settings" label="Settings" icon={cog}>
       <h2>Settings</h2>
-      <div className="setting">
-        <span id="theme-label">Appearance</span>
-        <div className="segmented" role="radiogroup" aria-labelledby="theme-label">
-          {THEMES.map((t) => (
-            <button key={t.value} role="radio" aria-checked={theme === t.value} onClick={() => onTheme(t.value)}>
-              {t.label}
-            </button>
-          ))}
-        </div>
-      </div>
-      <label className="setting">
-        <span>
-          Colour-blind friendly colours
-          <span className="setting-sub">Map colours that stay apart with any colour-vision deficiency.</span>
-        </span>
-        <input type="checkbox" checked={colorblind} onChange={(e) => onColorblind(e.target.checked)} />
-      </label>
+      <Switch label="Dark mode" on={dark} onChange={onDark} />
+      <Switch
+        label="Colour-blind friendly colours"
+        sub="Map colours that stay apart with any colour-vision deficiency."
+        on={colorblind}
+        onChange={onColorblind}
+      />
     </Popover>
   );
 }
@@ -364,7 +361,6 @@ export default function App({ daily }: { daily: Daily }) {
         peek={DEV_MODE && peeking ? target : null}
         highlightCountries={highlightCountries}
         palette={palette}
-        dark={dark}
         onCandidateClick={fillFromMap}
       />
 
@@ -415,7 +411,7 @@ export default function App({ daily }: { daily: Daily }) {
 
       <div className="card game">
         <div className="corner">
-          <Settings theme={theme} onTheme={setTheme} colorblind={colorblind} onColorblind={setColorblind} />
+          <Settings dark={dark} onDark={(on) => setTheme(on ? 'dark' : 'light')} colorblind={colorblind} onColorblind={setColorblind} />
           <Help />
         </div>
         <div className="prompt">

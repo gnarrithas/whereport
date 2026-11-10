@@ -32,8 +32,6 @@ interface Props {
   peek: Airport | null;
   /** Colours for everything the game draws; a new palette restyles the map. */
   palette: Palette;
-  /** A dark basemap. */
-  dark: boolean;
   /** Tint each destination's country with its dots' colour, much fainter. */
   highlightCountries: boolean;
   /** Airports that could be the answer, marked with an airport icon once its country is known; else empty. */
@@ -81,7 +79,7 @@ const AIRPORT = 'daily-map-airport';
 /** Airport icons (96px image at pixel ratio 2): on the world view just a bit larger than a destination dot, growing as you zoom in. */
 const AIRPORT_ICON_SIZE: maplibregl.ExpressionSpecification =
   ['interpolate', ['exponential', 1.5], ['zoom'], 1, 0.2, 4, 0.35, 7, 0.6, 10, 1];
-const basemapStyle = (dark: boolean) => `https://tiles.openfreemap.org/styles/${dark ? 'dark' : 'liberty'}`;
+const BASEMAP_STYLE = 'https://tiles.openfreemap.org/styles/liberty';
 const PULSE_MS = 1600;
 const PULSE_GROW = 14;
 
@@ -374,7 +372,7 @@ export default function MapView(props: Props) {
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<MlMap | null>(null);
   const loadedRef = useRef(false);
-  /** The current style has loaded: its sources and layers exist. False while a new theme or palette loads. */
+  /** The current style has loaded: its sources and layers exist. False while a new palette loads. */
   const styleReadyRef = useRef(false);
   const latest = useRef(props);
 
@@ -440,14 +438,14 @@ export default function MapView(props: Props) {
     };
   }, []);
 
-  // The basemap and every colour come with the style: a new theme or palette swaps it whole. The new style
+  // Every colour comes with the style: a new palette swaps it whole. The new style
   // starts with empty sources and no images, so the game is drawn again and the images redrawn on demand.
-  const { palette, dark } = props;
+  const { palette } = props;
   useEffect(() => {
     const map = mapRef.current;
     if (!map) return;
     styleReadyRef.current = false;
-    map.setStyle(basemapStyle(dark), { diff: false, transformStyle: withRouteLayers(palette) });
+    map.setStyle(BASEMAP_STYLE, { diff: false, transformStyle: withRouteLayers(palette) });
     // The first style is drawn by the map's 'load' handler instead.
     const restyled = () => {
       if (!loadedRef.current) return;
@@ -458,7 +456,7 @@ export default function MapView(props: Props) {
     return () => {
       map.off('style.load', restyled);
     };
-  }, [palette, dark]);
+  }, [palette]);
 
   useEffect(() => {
     const map = mapRef.current;
