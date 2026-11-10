@@ -52,9 +52,15 @@ export function domesticFrom(airport: Airport): Destination[] {
 /** Airports whose destinations identify them unambiguously, chosen offline by scripts/build_airports.py. */
 const unique: Airport[] = (data.unique as number[]).map((index) => airports[index]);
 
-/** Fewest destinations an airport needs to make a fair puzzle. */
+/** Fewest destinations an airport needs to make a fair puzzle. Must match scripts/shuffle_airports.py. */
 const MIN_DESTINATIONS = 4;
-const playable = unique.filter((a) => destinations[a.index].length >= MIN_DESTINATIONS);
+export const playable = unique.filter((a) => destinations[a.index].length >= MIN_DESTINATIONS);
+const playableSet = new Set(playable);
+
+/** Whether the airport could be a puzzle's answer. */
+export function isPlayable(airport: Airport): boolean {
+  return playableSet.has(airport);
+}
 
 /** Airports in a country that could be a puzzle's answer. */
 export function playableIn(country: string): Airport[] {

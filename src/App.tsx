@@ -162,8 +162,9 @@ function Help() {
   );
 }
 
-export default function App() {
-  const [target, setTarget] = useState(() => randomAirport());
+/** Starts on today's airport; "Next airport" then moves on to random ones. */
+export default function App({ daily }: { daily: Airport }) {
+  const [target, setTarget] = useState(daily);
   const [feedback, setFeedback] = useState<Feedback>(null);
   const [attempts, setAttempts] = useState(0);
   const [query, setQuery] = useState('');

@@ -1,0 +1,56 @@
+name: Deploy to GitHub Pages
+
+on:
+  push:
+    branches: [main]
+  # Daily redeploy publishing the new UTC day's airport (scripts/shuffle_airports.py
+  # writes days up to today, UTC, never tomorrow). Players east of UTC keep
+  # yesterday's airport until it lands, so it runs just after midnight with a
+  # retry an hour later. Schedules run from the default branch, and GitHub
+  # disables them after 60 days without commits in a public repo.
+  schedule:
+    - cron: "7 0 * * *"
+    - cron: "7 1 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: python3 -m unittest discover -s scripts -p 'test_*.py'
+      - run: npm run build
+        env:
+          BASE_PATH: /${{ github.event.repository.name }}/
+      # Airports up to today (UTC), never tomorrow's; fails the deploy if
+      # the secret is missing.
+      - run: python3 scripts/shuffle_airports.py src/data/airports.json dist/daily.txt
+        env:
+          SOLUTIONS_SHUFFLE_SEED: ${{ secrets.SOLUTIONS_SHUFFLE_SEED }}
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: dist
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4
