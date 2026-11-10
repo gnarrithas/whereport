@@ -30,14 +30,24 @@ function parseDaily(text: string): Airport[] {
   return daily as Airport[];
 }
 
+export interface Daily {
+  airport: Airport;
+  /** Day index, 0 on FIRST_DAY_UTC. */
+  day: number;
+}
+
 /**
  * Today's airport. Production fetches the list the deploy wrote with the secret
  * seed; development, which has none, walks the playable airports in order.
  */
-export async function loadDailyAirport(): Promise<Airport> {
-  if (import.meta.env.DEV) return playable[dayIndex(Infinity) % playable.length];
+export async function loadDailyAirport(): Promise<Daily> {
+  if (import.meta.env.DEV) {
+    const day = dayIndex(Infinity);
+    return { airport: playable[day % playable.length], day };
+  }
   const response = await fetch(`${import.meta.env.BASE_URL}daily.txt`, { cache: 'no-cache' });
   if (!response.ok) throw new Error(`GET daily.txt failed: ${response.status}`);
   const daily = parseDaily(await response.text());
-  return daily[dayIndex(daily.length)];
+  const day = dayIndex(daily.length);
+  return { airport: daily[day], day };
 }

@@ -13,6 +13,8 @@ import {
   type Airport,
   type Country,
 } from './data/airports';
+import type { Daily } from './data/daily';
+import { MARKS, copyText, shareText, siteUrl, type Mark } from './share';
 
 type Feedback =
   | { kind: 'wrong'; guess: Airport }
@@ -163,8 +165,12 @@ function Help() {
 }
 
 /** Starts on today's airport; "Next airport" then moves on to random ones. */
-export default function App({ daily }: { daily: Airport }) {
-  const [target, setTarget] = useState(daily);
+export default function App({ daily }: { daily: Daily }) {
+  const [target, setTarget] = useState(daily.airport);
+  /** Still on today's puzzle, the only one that can be shared. */
+  const [isDaily, setIsDaily] = useState(true);
+  const [marks, setMarks] = useState<Mark[]>([]);
+  const [copied, setCopied] = useState<'yes' | 'failed' | null>(null);
   const [feedback, setFeedback] = useState<Feedback>(null);
   const [attempts, setAttempts] = useState(0);
   const [query, setQuery] = useState('');
@@ -216,6 +222,7 @@ export default function App({ daily }: { daily: Airport }) {
     setQuery('');
     setPending(null);
     setAttempts((n) => n + 1);
+    setMarks((list) => [...list, airport === target ? MARKS.rightAirport : MARKS.wrongAirport]);
     if (airport === target) {
       setFeedback({ kind: 'correct' });
       setDiff([]);
@@ -245,6 +252,7 @@ export default function App({ daily }: { daily: Airport }) {
   const guessCountry = (country: Country) => {
     setQuery('');
     setAttempts((n) => n + 1);
+    setMarks((list) => [...list, country.code === target.country ? MARKS.rightCountry : MARKS.wrongCountry]);
     if (country.code === target.country) {
       setCountryKnown(true);
       setMode('airport');
@@ -255,8 +263,21 @@ export default function App({ daily }: { daily: Airport }) {
     }
   };
 
+  const share = () => {
+    copyText(shareText(daily.day, marks, siteUrl())).then(
+      () => setCopied('yes'),
+      (err) => {
+        console.error(err);
+        setCopied('failed');
+      },
+    );
+  };
+
   const next = () => {
     setTarget((t) => randomAirport(t));
+    setIsDaily(false);
+    setMarks([]);
+    setCopied(null);
     setFeedback(null);
     setAttempts(0);
     setQuery('');
@@ -333,7 +354,10 @@ export default function App({ daily }: { daily: Airport }) {
 
         {done ? (
           <div className="actions" ref={rowRef}>
-            <button className="primary" onClick={next} autoFocus>Next airport</button>
+            {isDaily && <button className="primary" onClick={share} autoFocus>
+                {copied === 'yes' ? 'Copied!' : copied === 'failed' ? "Couldn't copy" : 'Share'}
+              </button>}
+            <button className={isDaily ? undefined : 'primary'} onClick={next} autoFocus={!isDaily}>Next airport</button>
           </div>
         ) : (
           <div className="guess" ref={rowRef}>
