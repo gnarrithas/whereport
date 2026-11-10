@@ -350,8 +350,9 @@ function render(
   for (const f of originDot.features) Object.assign(f.properties, { won });
   (map.getSource(ORIGIN) as GeoJSONSource).setData(originDot);
   (map.getSource(GUESS) as GeoJSONSource).setData(dots(compare.map((airport) => ({ airport, r: GUESS_RADIUS }))));
-  // A wrong guess or a domestic destination can't be the answer: its icon gives way to its dot.
-  const out = new Set([...ruledOut, ...domestic.map((d) => d.airport)]);
+  // A wrong guess or a domestic destination can't be the answer, and the revealed answer has its own dot:
+  // their icons give way to those dots.
+  const out = new Set([...ruledOut, ...domestic.map((d) => d.airport), ...(origin ? [origin] : [])]);
   (map.getSource(CANDIDATES) as GeoJSONSource).setData(
     dots(candidates.filter((a) => !out.has(a)).map((airport) => ({ airport, r: 0 }))),
   );
