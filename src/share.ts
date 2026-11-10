@@ -1,9 +1,14 @@
-/** One mark per guess, in the order they were made. */
+/**
+ * One mark per move, in the order they were made. Circles are airport guesses and squares country
+ * guesses; orange is wrong and blue right, a pair colour-blind players can tell apart.
+ */
 export const MARKS = {
-  wrongAirport: '🔴',
-  wrongCountry: '🚩',
-  rightCountry: '🏁',
-  rightAirport: '🟢',
+  wrongAirport: '🟠',
+  rightAirport: '🔵',
+  wrongCountry: '🟧',
+  rightCountry: '🟦',
+  domesticHint: '💡',
+  gaveUp: '🏳️',
 } as const;
 
 export type Mark = (typeof MARKS)[keyof typeof MARKS];

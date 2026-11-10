@@ -225,8 +225,7 @@ export default function App({ daily }: { daily: Daily }) {
     setQuery('');
     setPending(null);
     setAttempts((n) => n + 1);
-    setCopied(null);
-    setMarks((list) => [...list, airport === target ? MARKS.rightAirport : MARKS.wrongAirport]);
+    addMark(airport === target ? MARKS.rightAirport : MARKS.wrongAirport);
     if (airport === target) {
       setFeedback({ kind: 'correct' });
       setDiff([]);
@@ -256,8 +255,7 @@ export default function App({ daily }: { daily: Daily }) {
   const guessCountry = (country: Country) => {
     setQuery('');
     setAttempts((n) => n + 1);
-    setCopied(null);
-    setMarks((list) => [...list, country.code === target.country ? MARKS.rightCountry : MARKS.wrongCountry]);
+    addMark(country.code === target.country ? MARKS.rightCountry : MARKS.wrongCountry);
     if (country.code === target.country) {
       setCountryKnown(true);
       setMode('airport');
@@ -266,6 +264,21 @@ export default function App({ daily }: { daily: Daily }) {
       setFeedback({ kind: 'wrong-country', guess: country });
       setWrongCountries((list) => (list.includes(country.code) ? list : [...list, country.code]));
     }
+  };
+
+  const addMark = (mark: Mark) => {
+    setCopied(null);
+    setMarks((list) => [...list, mark]);
+  };
+
+  const giveUp = () => {
+    addMark(MARKS.gaveUp);
+    setFeedback({ kind: 'revealed' });
+  };
+
+  const revealDomestic = () => {
+    addMark(MARKS.domesticHint);
+    setDomesticShown(true);
   };
 
   /** Today's puzzle can be shared; in dev mode, any game at any point. */
@@ -416,12 +429,12 @@ export default function App({ daily }: { daily: Daily }) {
                 ? <button onClick={() => switchMode('airport')}>Guess airport</button>
                 : <button onClick={() => switchMode('country')}>Guess country</button>
             )}
-            <button onClick={() => setFeedback({ kind: 'revealed' })}>Give up</button>
+            <button onClick={giveUp}>Give up</button>
           </div>
         )}
 
         {countryKnown && !done && !domesticShown && (
-          <button className="link" onClick={() => setDomesticShown(true)}>Reveal domestic flights</button>
+          <button className="link" onClick={revealDomestic}>Reveal domestic flights</button>
         )}
 
         <div className="status">
