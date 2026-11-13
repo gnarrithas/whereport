@@ -174,6 +174,14 @@ function Help() {
   );
 }
 
+const bulb = (
+  <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="2"
+    strokeLinecap="round" strokeLinejoin="round">
+    <path d="M9 18h6M10 22h4" />
+    <path d="M12 2a7 7 0 0 0-4 12.74V16h8v-1.26A7 7 0 0 0 12 2z" />
+  </svg>
+);
+
 const cog = (
   <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="2"
     strokeLinecap="round" strokeLinejoin="round">
@@ -409,6 +417,9 @@ export default function App({ daily }: { daily: Daily }) {
             Reveal {peeking && !done ? target.code : ''}
           </label>
         )}
+        {countryKnown && !done && !domesticShown && (
+          <button className="domestic-hint" title="Get a hint" onClick={revealDomestic}>{bulb} Reveal domestic flights</button>
+        )}
       </div>
 
       {wrongGuesses.length > 0 && (
@@ -506,13 +517,6 @@ export default function App({ daily }: { daily: Daily }) {
                 : <button onClick={() => switchMode('country')}>Guess country</button>
             )}
             <button onClick={giveUp}>Give up</button>
-          </div>
-        )}
-
-        {countryKnown && !done && !domesticShown && (
-          <div className="domestic-hint">
-            <strong>Get a hint:</strong>{' '}
-            <button className="link" onClick={revealDomestic}>Reveal domestic flights</button>
           </div>
         )}
 
