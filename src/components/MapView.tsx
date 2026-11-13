@@ -24,6 +24,9 @@ interface Props {
   ruledOut: Airport[];
   /** A possible-answer icon was clicked. */
   onCandidateClick: (airport: Airport) => void;
+  /** Clicking a country picks it (calling onCountryClick with its code), e.g. while guessing the country. */
+  pickCountry: boolean;
+  onCountryClick: (code: string) => void;
   /** The answer's domestic flights to other possible answers, once the player reveals them; else empty. */
   domestic: Destination[];
   /** The player found the answer: its dot turns gold and fireworks go off above it. */
@@ -289,6 +292,12 @@ const withRouteLayers = (palette: Palette): maplibregl.TransformStyleFunction =>
       paint: { 'fill-opacity': 0 },
     },
     {
+      // Invisible, every country: clicked to pick a country. Hidden unless countries can be picked.
+      id: 'pick-country', type: 'fill', source: COUNTRIES,
+      layout: { visibility: 'none' },
+      paint: { 'fill-opacity': 0 },
+    },
+    {
       // Under the wrong-country hatching, so a ruled-out country still reads as ruled out.
       id: 'dest-country', type: 'fill', source: COUNTRIES, filter: countryFilter([]),
       paint: { 'fill-opacity': 0 },
@@ -474,6 +483,18 @@ export default function MapView(props: Props) {
       map.on('mouseleave', layer, () => { map.getCanvas().style.cursor = ''; });
     }
 
+    // Picking a country; an airport icon on top of it takes the click instead.
+    const AIRPORT_LAYERS = ['candidate-icon', 'hover-airport'];
+    map.on('click', 'pick-country', (e) => {
+      const code = e.features?.[0]?.properties?.code;
+      if (typeof code !== 'string') return;
+      const layers = AIRPORT_LAYERS.filter((l) => map.getLayer(l));
+      if (layers.length && map.queryRenderedFeatures(e.point, { layers }).length) return;
+      latest.current.onCountryClick(code);
+    });
+    map.on('mouseenter', 'pick-country', () => { map.getCanvas().style.cursor = 'pointer'; });
+    map.on('mouseleave', 'pick-country', () => { map.getCanvas().style.cursor = ''; });
+
     // Follow pointer: redrawn at most once a frame, however fast the mouse moves.
     let pointerFrame = 0;
     const movePointer = (at: [number, number] | null) => {
@@ -541,7 +562,7 @@ export default function MapView(props: Props) {
   }, [
     props.origin, props.answer, props.destinations, props.compare, props.wrongCountries, props.candidates,
     props.ruledOut, props.domestic, props.won, props.peek, props.highlightCountries, props.followPointer,
-    props.hoverAirports,
+    props.hoverAirports, props.pickCountry,
   ]);
 
   useEffect(() => {
@@ -571,6 +592,9 @@ function render(map: MlMap, props: Props, pointer: [number, number] | null, hove
   const { origin, answer, destinations, compare, wrongCountries, candidates, ruledOut, domestic, won, peek, highlightCountries, palette } = props;
   drawPointer(map, props, pointer);
   map.setLayoutProperty('hover-country', 'visibility', props.hoverAirports ? 'visible' : 'none');
+  // Hiding the layer skips its mouseleave, so its pointer cursor is reset here.
+  if (!props.pickCountry && map.getLayoutProperty('pick-country', 'visibility') === 'visible') map.getCanvas().style.cursor = '';
+  map.setLayoutProperty('pick-country', 'visibility', props.pickCountry ? 'visible' : 'none');
   drawHover(map, props, hovered);
   const routes = routeDots(answer, destinations, compare);
   (map.getSource(DESTS) as GeoJSONSource).setData(routes);

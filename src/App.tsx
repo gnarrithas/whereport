@@ -265,6 +265,9 @@ export default function App({ daily }: { daily: Daily }) {
   const [diff, setDiff] = useState<Airport[]>(() => (feedback?.kind === 'wrong' ? [feedback.guess] : []));
   /** An airport clicked on the map, filled into the answer bar and waiting for Enter or Guess. */
   const [pending, setPending] = useState<Airport | null>(null);
+  /** A country clicked on the map, filled into the answer bar and waiting for Enter or send. */
+  const [pendingCountry, setPendingCountry] = useState<Country | null>(null);
+  const countryRef = useRef<HTMLInputElement>(null);
   const answerRef = useRef<HTMLInputElement>(null);
   // The options box sits right of the question card, whose width follows the question.
   const gameRef = useRef<HTMLDivElement>(null);
@@ -323,6 +326,8 @@ export default function App({ daily }: { daily: Daily }) {
   const switchMode = (m: Mode) => {
     setMode(m);
     setQuery('');
+    setPending(null);
+    setPendingCountry(null);
   };
 
   const guessAirport = (airport: Airport) => {
@@ -335,9 +340,21 @@ export default function App({ daily }: { daily: Daily }) {
   const fillFromMap = (airport: Airport) => {
     if (done) return;
     setMode('airport');
+    setPendingCountry(null);
     setQuery(label(airport));
     setPending(airport);
     answerRef.current?.focus();
+  };
+
+  const fillCountryFromMap = (code: string) => {
+    setQuery(countryName(code));
+    setPendingCountry({ code, name: countryName(code) });
+    countryRef.current?.focus();
+  };
+
+  const typeCountry = (q: string) => {
+    setQuery(q);
+    setPendingCountry(null);
   };
 
   const typeAirport = (q: string) => {
@@ -350,21 +367,24 @@ export default function App({ daily }: { daily: Daily }) {
 
   const guessCountry = (country: Country) => {
     setQuery('');
+    setPendingCountry(null);
     if (move({ kind: 'country', code: country.code })?.countryKnown) setMode('airport');
   };
 
   /** The send button: the airport filled in from the map, else the top match for what's typed. */
   const sendGuess = () => {
-    if (!query.trim() && !pending) return;
     if (mode === 'country') {
-      if (countryMatches[0]) guessCountry(countryMatches[0]);
+      const country = pendingCountry ?? (query.trim() ? countryMatches[0] : undefined);
+      if (country) guessCountry(country);
+    } else if (!query.trim() && !pending) {
+      return;
     } else {
       const airport = pending ?? airportMatches[0];
       if (airport) guessAirport(airport);
     }
   };
   const canSend = mode === 'country'
-    ? !!query.trim() && countryMatches.length > 0
+    ? !!pendingCountry || (!!query.trim() && countryMatches.length > 0)
     : !!pending || (!!query.trim() && airportMatches.length > 0);
 
   const giveUp = () => move({ kind: 'give-up' });
@@ -394,6 +414,7 @@ export default function App({ daily }: { daily: Daily }) {
     setQuery('');
     setMode('airport');
     setPending(null);
+    setPendingCountry(null);
     setDiff([]);
   };
 
@@ -420,6 +441,8 @@ export default function App({ daily }: { daily: Daily }) {
         hoverAirports={hoverAirports && !done}
         palette={palette}
         onCandidateClick={fillFromMap}
+        pickCountry={mode === 'country' && !countryKnown && !done}
+        onCountryClick={fillCountryFromMap}
       />
 
       <div
@@ -521,8 +544,10 @@ export default function App({ daily }: { daily: Daily }) {
                 key="country"
                 matches={countryMatches}
                 query={query}
-                onQuery={setQuery}
+                onQuery={typeCountry}
                 onPick={guessCountry}
+                onSubmit={() => pendingCountry && guessCountry(pendingCountry)}
+                inputRef={countryRef}
                 keyOf={(c) => c.code}
                 render={(c) => <><strong>{c.name}</strong> <span className="code">{c.code}</span></>}
                 placeholder="Type a country"
