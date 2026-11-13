@@ -77,6 +77,12 @@ html, body, #root, .app { margin: 0; height: 100%; }
 .bad { color: var(--bad); }
 
 .actions { display: flex; gap: 8px; justify-content: center; }
+/* The end-of-game buttons sit over the hidden answer bar, so the card doesn't change height. */
+.answer-area { display: grid; }
+.answer-area > * { grid-area: 1 / 1; min-width: 0; }
+.answer { display: flex; flex-direction: column; gap: 10px; }
+.answer[inert] { visibility: hidden; }
+.answer-area > .actions { align-self: center; }
 button {
   font: inherit; cursor: pointer;
   padding: 8px 18px; border-radius: 8px;
