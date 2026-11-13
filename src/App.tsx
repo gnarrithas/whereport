@@ -240,7 +240,7 @@ const OPTIONS_WIDTH = 250;
 const OPTIONS_GAP = 16;
 const ZOOM_STRIP = 56;
 
-/** Starts on today's airport, as far as it was played before; "Next airport" then moves on to random ones. */
+/** Starts on today's airport, as far as it was played before; "Play another round!" then moves on to random ones. */
 export default function App({ daily }: { daily: Daily }) {
   const [target, setTarget] = useState(daily.airport);
   /** Still on today's puzzle, the only one that is saved and, outside dev mode, shared. */
@@ -397,6 +397,10 @@ export default function App({ daily }: { daily: Daily }) {
     setDiff([]);
   };
 
+  const playAgain = (
+    <button className="link" onClick={next} autoFocus={!shareable}>Play another round!</button>
+  );
+
   return (
     <div className="app">
       <h1 className="brand">Whereport</h1>
@@ -547,7 +551,6 @@ export default function App({ daily }: { daily: Daily }) {
             {!done ? <button onClick={giveUp}>Give up</button> : (
               <>
                 {shareable && <button className="primary" onClick={share} autoFocus>{shareLabel}</button>}
-                <button className={shareable ? undefined : 'primary'} onClick={next} autoFocus={!shareable}>Next airport</button>
               </>
             )}
           </div>
@@ -559,9 +562,10 @@ export default function App({ daily }: { daily: Daily }) {
               <span className="good">
                 Correct! It's {label(target)}
                 {attempts > 1 && ` — found in ${attempts} guesses`}.
+                {playAgain}
               </span>
             ) : feedback?.kind === 'revealed' ? (
-              <span>The answer was {label(target)}.</span>
+              <span className="good">The answer was {label(target)}.{playAgain}</span>
             ) : feedback?.kind === 'wrong' ? (
               <span className="bad">It's not {feedback.guess.name} (<strong>{feedback.guess.code}</strong>).</span>
             ) : feedback?.kind === 'wrong-country' ? (
