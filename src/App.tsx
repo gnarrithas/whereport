@@ -490,10 +490,6 @@ export default function App({ daily }: { daily: Daily }) {
           Which airport has direct international flights to these {destinations.length} destinations?
         </div>
 
-        {countryKnown && !done && (
-          <div className="hint">Country: <strong>{targetCountry}</strong> ✓</div>
-        )}
-
         {done ? (
           <div className="actions" ref={rowRef}>
             {shareable && <button className="primary" onClick={share} autoFocus>{shareLabel}</button>}
@@ -501,7 +497,7 @@ export default function App({ daily }: { daily: Daily }) {
           </div>
         ) : (
           <>
-          {!countryKnown && (
+          <div className="mode-row">
             <div className="mode-toggle" role="radiogroup" aria-label="Guess a country or an airport">
               {(['country', 'airport'] as const).map((m) => (
                 <button
@@ -509,13 +505,16 @@ export default function App({ daily }: { daily: Daily }) {
                   role="radio"
                   aria-checked={mode === m}
                   className={mode === m ? 'on' : undefined}
+                  // Once the country is found, only airports are left to guess.
+                  disabled={countryKnown && m === 'country'}
                   onClick={() => mode !== m && switchMode(m)}
                 >
                   {m === 'country' ? 'Country' : 'Airport'}
                 </button>
               ))}
             </div>
-          )}
+            {countryKnown && <div className="hint">Country: <strong>{targetCountry}</strong> ✓</div>}
+          </div>
           <div className="guess" ref={rowRef}>
             {mode === 'country' ? (
               <Combo
