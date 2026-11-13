@@ -214,3 +214,5 @@ button.link:hover { background: none; color: var(--accent-hover); }
 .options-box label.disabled { color: var(--faint); cursor: default; }
 .options-box input { margin: 0; cursor: inherit; }
 
+/* Map tooltips are text only; the country one follows the pointer and mustn't catch it. */
+.maplibregl-popup { pointer-events: none; }

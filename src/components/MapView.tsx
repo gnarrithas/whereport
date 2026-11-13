@@ -4,7 +4,7 @@ import type { GeoJSONSource, LngLatBoundsLike, Map as MlMap } from 'maplibre-gl'
 import type { FeatureCollection, LineString, Point } from 'geojson';
 import workerUrl from 'maplibre-gl/dist/maplibre-gl-worker.mjs?url';
 import { launchFireworks } from './fireworks';
-import { airports, destinationsFrom, type Airport, type Destination } from '../data/airports';
+import { airports, countryName, destinationsFrom, playableIn, type Airport, type Destination } from '../data/airports';
 import type { DotKind, Palette } from '../palette';
 
 // Vite pre-bundling breaks MapLibre's import.meta.url worker lookup; point it at the worker explicitly.
@@ -38,6 +38,8 @@ interface Props {
   candidates: Airport[];
   /** Draw lines from the mouse pointer to every destination, as if the answer were there. */
   followPointer: boolean;
+  /** Hovering a country marks the airports in it that could be the answer, clickable like the candidate icons. */
+  hoverAirports: boolean;
 }
 
 interface DotProps {
@@ -74,6 +76,9 @@ const DOMESTIC = 'domestic';
 const ROUTES = 'routes';
 const PEEK = 'peek';
 const POINTER = 'pointer';
+const HOVER = 'hover-airports';
+/** Airports on hover: small hollow dots, so they stay apart from the destinations and the candidate icons. */
+const HOVER_RADIUS = 3;
 const ARC_STEPS = 48;
 /** Wrong guesses are drawn mid-sized among the destination dots (3–7px). */
 const GUESS_RADIUS = 5;
@@ -275,9 +280,16 @@ const withRouteLayers = (palette: Palette): maplibregl.TransformStyleFunction =>
     [ROUTES]: { type: 'geojson', data: empty },
     [PEEK]: { type: 'geojson', data: empty },
     [POINTER]: { type: 'geojson', data: empty },
+    [HOVER]: { type: 'geojson', data: empty },
   },
   layers: [
     ...next.layers,
+    {
+      // Invisible, every country: only there to tell which country the pointer is over. Hidden while unused.
+      id: 'hover-country', type: 'fill', source: COUNTRIES,
+      layout: { visibility: 'none' },
+      paint: { 'fill-opacity': 0 },
+    },
     {
       // Under the wrong-country hatching, so a ruled-out country still reads as ruled out.
       id: 'dest-country', type: 'fill', source: COUNTRIES, filter: countryFilter([]),
@@ -311,6 +323,14 @@ const withRouteLayers = (palette: Palette): maplibregl.TransformStyleFunction =>
       paint: {
         'line-color': ['case', ['get', 'domestic'], palette.domestic, palette.dots.missing],
         'line-width': 1.2, 'line-opacity': 0.5, 'line-dasharray': [3, 2],
+      },
+    },
+    {
+      // Under the destinations, which can never be the answer and keep their own dots.
+      id: 'hover-airport', type: 'circle', source: HOVER,
+      paint: {
+        'circle-color': '#fff', 'circle-opacity': 0.9, 'circle-radius': HOVER_RADIUS,
+        'circle-stroke-color': '#374151', 'circle-stroke-width': 1.5,
       },
     },
     {
@@ -389,6 +409,8 @@ export default function MapView(props: Props) {
   const latest = useRef(props);
   /** Where the mouse pointer last was over the map, or null once it left. */
   const pointerRef = useRef<[number, number] | null>(null);
+  /** The country the pointer is over, for airports on hover; null outside any. */
+  const hoveredRef = useRef<string | null>(null);
 
   latest.current = props;
 
@@ -409,7 +431,25 @@ export default function MapView(props: Props) {
     });
 
     const popup = new maplibregl.Popup({ closeButton: false, closeOnClick: false, offset: 10 });
-    for (const layer of ['dest-dot', 'candidate-icon', 'domestic-dot', 'ruled-out-dot', 'guess-dot']) {
+    // Airports on hover. Registered before the airport tooltips, so over a dot its own tooltip wins.
+    map.on('mousemove', 'hover-country', (e) => {
+      const code = e.features?.[0]?.properties?.code;
+      if (typeof code !== 'string') return;
+      if (code !== hoveredRef.current) {
+        hoveredRef.current = code;
+        drawHover(map, latest.current, code);
+      }
+      const n = hoverAirports(latest.current, code).length;
+      popup.setLngLat(e.lngLat)
+        .setText(`${countryName(code)} · ${n ? `${n} possible airport${n === 1 ? '' : 's'}` : 'no possible airports'}`)
+        .addTo(map);
+    });
+    map.on('mouseleave', 'hover-country', () => {
+      hoveredRef.current = null;
+      drawHover(map, latest.current, null);
+      popup.remove();
+    });
+    for (const layer of ['dest-dot', 'candidate-icon', 'hover-airport', 'domestic-dot', 'ruled-out-dot', 'guess-dot']) {
       map.on('mousemove', layer, (e) => {
         const index = e.features?.[0]?.properties?.index;
         if (typeof index !== 'number') return;
@@ -419,12 +459,14 @@ export default function MapView(props: Props) {
       });
       map.on('mouseleave', layer, () => popup.remove());
     }
-    map.on('click', 'candidate-icon', (e) => {
-      const index = e.features?.[0]?.properties?.index;
-      if (typeof index === 'number') latest.current.onCandidateClick(airports[index]);
-    });
-    map.on('mouseenter', 'candidate-icon', () => { map.getCanvas().style.cursor = 'pointer'; });
-    map.on('mouseleave', 'candidate-icon', () => { map.getCanvas().style.cursor = ''; });
+    for (const layer of ['candidate-icon', 'hover-airport']) {
+      map.on('click', layer, (e) => {
+        const index = e.features?.[0]?.properties?.index;
+        if (typeof index === 'number') latest.current.onCandidateClick(airports[index]);
+      });
+      map.on('mouseenter', layer, () => { map.getCanvas().style.cursor = 'pointer'; });
+      map.on('mouseleave', layer, () => { map.getCanvas().style.cursor = ''; });
+    }
 
     // Follow pointer: redrawn at most once a frame, however fast the mouse moves.
     let pointerFrame = 0;
@@ -452,7 +494,7 @@ export default function MapView(props: Props) {
     map.on('load', () => {
       loadedRef.current = true;
       styleReadyRef.current = true;
-      render(map, latest.current, pointerRef.current);
+      render(map, latest.current, pointerRef.current, hoveredRef.current);
       frame = requestAnimationFrame(pulse);
     });
 
@@ -478,7 +520,7 @@ export default function MapView(props: Props) {
     const restyled = () => {
       if (!loadedRef.current) return;
       styleReadyRef.current = true;
-      render(map, latest.current, pointerRef.current);
+      render(map, latest.current, pointerRef.current, hoveredRef.current);
     };
     map.once('style.load', restyled);
     return () => {
@@ -489,10 +531,11 @@ export default function MapView(props: Props) {
   useEffect(() => {
     const map = mapRef.current;
     if (!map || !styleReadyRef.current) return;
-    render(map, props, pointerRef.current);
+    render(map, props, pointerRef.current, hoveredRef.current);
   }, [
     props.origin, props.answer, props.destinations, props.compare, props.wrongCountries, props.candidates,
     props.ruledOut, props.domestic, props.won, props.peek, props.highlightCountries, props.followPointer,
+    props.hoverAirports,
   ]);
 
   useEffect(() => {
@@ -518,9 +561,11 @@ export default function MapView(props: Props) {
   return <div ref={containerRef} className="map" />;
 }
 
-function render(map: MlMap, props: Props, pointer: [number, number] | null) {
+function render(map: MlMap, props: Props, pointer: [number, number] | null, hovered: string | null) {
   const { origin, answer, destinations, compare, wrongCountries, candidates, ruledOut, domestic, won, peek, highlightCountries, palette } = props;
   drawPointer(map, props, pointer);
+  map.setLayoutProperty('hover-country', 'visibility', props.hoverAirports ? 'visible' : 'none');
+  drawHover(map, props, hovered);
   const routes = routeDots(answer, destinations, compare);
   (map.getSource(DESTS) as GeoJSONSource).setData(routes);
   const tint = countryTint(highlightCountries ? routes.features : [], palette);
@@ -553,6 +598,25 @@ function render(map: MlMap, props: Props, pointer: [number, number] | null) {
 function drawPointer(map: MlMap, { followPointer, destinations, domestic }: Props, pointer: [number, number] | null) {
   (map.getSource(POINTER) as GeoJSONSource).setData(
     followPointer && pointer ? routeLines(pointer, destinations, domestic) : empty,
+  );
+}
+
+/**
+ * The airports in a country that could still be the answer and have no mark of their own yet: not a guess,
+ * a destination, a revealed domestic one, a candidate icon or the revealed answer.
+ */
+function hoverAirports({ origin, destinations, domestic, candidates, ruledOut }: Props, country: string): Airport[] {
+  const marked = new Set([
+    ...ruledOut, ...candidates, ...destinations.map((d) => d.airport), ...domestic.map((d) => d.airport),
+    ...(origin ? [origin] : []),
+  ]);
+  return playableIn(country).filter((a) => !marked.has(a));
+}
+
+/** Airports on hover's dots, for the hovered country; none when off or outside any country. */
+function drawHover(map: MlMap, props: Props, country: string | null) {
+  (map.getSource(HOVER) as GeoJSONSource).setData(
+    props.hoverAirports && country ? dots(hoverAirports(props, country).map((airport) => ({ airport, r: HOVER_RADIUS }))) : empty,
   );
 }
 

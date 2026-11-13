@@ -234,6 +234,8 @@ export default function App({ daily }: { daily: Daily }) {
   const [colorblind, setColorblind] = useSetting('colorblind', false, isBoolean);
   /** Lines from the mouse pointer to every destination, to judge how plausible a spot is. */
   const [followPointer, setFollowPointer] = useState(false);
+  /** Hovering a country marks the airports in it that could be the answer. */
+  const [hoverAirports, setHoverAirports] = useState(false);
   const dark = useDark(theme);
   const palette = PALETTES[colorblind ? 'colorblind' : 'standard'];
   /** Dev mode: the answer shown on the map mid-game. */
@@ -380,6 +382,7 @@ export default function App({ daily }: { daily: Daily }) {
         peek={DEV_MODE && peeking ? target : null}
         highlightCountries={highlightCountries}
         followPointer={followPointer && !done}
+        hoverAirports={hoverAirports && !done}
         palette={palette}
         onCandidateClick={fillFromMap}
       />
@@ -391,6 +394,10 @@ export default function App({ daily }: { daily: Daily }) {
         <label>
           <input type="checkbox" checked={highlightCountries} onChange={(e) => setHighlightCountries(e.target.checked)} />
           Destination countries
+        </label>
+        <label title="Hover a country to see its airports that could be the answer" className={done ? 'disabled' : undefined}>
+          <input type="checkbox" checked={hoverAirports} disabled={done} onChange={(e) => setHoverAirports(e.target.checked)} />
+          Airports on hover
         </label>
         <label title="Draw lines from the mouse pointer to every destination" className={done ? 'disabled' : undefined}>
           <input type="checkbox" checked={followPointer} disabled={done} onChange={(e) => setFollowPointer(e.target.checked)} />
