@@ -429,6 +429,16 @@ export default function MapView(props: Props) {
     });
 
     const popup = new maplibregl.Popup({ closeButton: false, closeOnClick: false, offset: 10 });
+    // Centring by translate(-50%, -100%) puts a fractional-size popup off the pixel grid, blurring its text:
+    // round it up to an even width and whole height.
+    const showPopup = (lngLat: maplibregl.LngLatLike, text: string) => {
+      popup.setLngLat(lngLat).setText(text).addTo(map);
+      const el = popup.getElement();
+      el.style.width = el.style.height = '';
+      const { width, height } = el.getBoundingClientRect();
+      el.style.width = `${2 * Math.ceil(width / 2)}px`;
+      el.style.height = `${Math.ceil(height)}px`;
+    };
     // Airports on hover. Registered before the airport tooltips, so over a dot its own tooltip wins.
     map.on('mousemove', 'hover-country', (e) => {
       const code = e.features?.[0]?.properties?.code;
@@ -438,9 +448,7 @@ export default function MapView(props: Props) {
         drawHover(map, latest.current, code);
       }
       const n = hoverAirports(latest.current, code).length;
-      popup.setLngLat(e.lngLat)
-        .setText(`${countryName(code)} · ${n ? `${n} possible airport${n === 1 ? '' : 's'}` : 'no possible airports'}`)
-        .addTo(map);
+      showPopup(e.lngLat, `${countryName(code)} · ${n ? `${n} possible airport${n === 1 ? '' : 's'}` : 'no possible airports'}`);
     });
     map.on('mouseleave', 'hover-country', () => {
       hoveredRef.current = null;
@@ -453,7 +461,7 @@ export default function MapView(props: Props) {
         if (typeof index !== 'number') return;
         const a = airports[index];
         const suffix = layer === 'guess-dot' ? ' (your guess)' : layer === 'ruled-out-dot' ? ' (wrong)' : '';
-        popup.setLngLat(a.lngLat).setText(`${a.code} · ${a.city || a.name}${suffix}`).addTo(map);
+        showPopup(a.lngLat, `${a.code} · ${a.city || a.name}${suffix}`);
       });
       map.on('mouseleave', layer, () => popup.remove());
     }
