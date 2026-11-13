@@ -227,6 +227,8 @@ export default function App({ daily }: { daily: Daily }) {
   const [highlightCountries, setHighlightCountries] = useSetting('highlight-countries', false, isBoolean);
   const [theme, setTheme] = useSetting<Theme>('theme', 'auto', isTheme);
   const [colorblind, setColorblind] = useSetting('colorblind', false, isBoolean);
+  /** Lines from the mouse pointer to every destination, to judge how plausible a spot is. */
+  const [followPointer, setFollowPointer] = useState(false);
   const dark = useDark(theme);
   const palette = PALETTES[colorblind ? 'colorblind' : 'standard'];
   /** Dev mode: the answer shown on the map mid-game. */
@@ -362,6 +364,7 @@ export default function App({ daily }: { daily: Daily }) {
         won={feedback?.kind === 'correct'}
         peek={DEV_MODE && peeking ? target : null}
         highlightCountries={highlightCountries}
+        followPointer={followPointer && !done}
         palette={palette}
         onCandidateClick={fillFromMap}
       />
@@ -500,10 +503,22 @@ export default function App({ daily }: { daily: Daily }) {
               <>Pick an airport from the list, or guess the country first. Routes as of {datasetDate}.</>
             )}
           </div>
-          <label className="toggle">
-            <input type="checkbox" checked={highlightCountries} onChange={(e) => setHighlightCountries(e.target.checked)} />
-            Highlight destination countries
-          </label>
+          <div className="map-options">
+            {!done && (
+              <button
+                className="follow"
+                aria-pressed={followPointer}
+                title="Draw lines from the mouse pointer to every destination"
+                onClick={() => setFollowPointer((on) => !on)}
+              >
+                Follow pointer
+              </button>
+            )}
+            <label className="toggle">
+              <input type="checkbox" checked={highlightCountries} onChange={(e) => setHighlightCountries(e.target.checked)} />
+              Highlight destination countries
+            </label>
+          </div>
         </div>
       </div>
     </div>

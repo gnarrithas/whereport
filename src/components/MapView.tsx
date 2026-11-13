@@ -36,6 +36,8 @@ interface Props {
   highlightCountries: boolean;
   /** Airports that could be the answer, marked with an airport icon once its country is known; else empty. */
   candidates: Airport[];
+  /** Draw lines from the mouse pointer to every destination, as if the answer were there. */
+  followPointer: boolean;
 }
 
 interface DotProps {
@@ -71,6 +73,7 @@ const RULED_OUT = 'ruled-out';
 const DOMESTIC = 'domestic';
 const ROUTES = 'routes';
 const PEEK = 'peek';
+const POINTER = 'pointer';
 const ARC_STEPS = 48;
 /** Wrong guesses are drawn mid-sized among the destination dots (3–7px). */
 const GUESS_RADIUS = 5;
@@ -161,14 +164,14 @@ function arc(a: [number, number], b: [number, number]): [number, number][] {
   return points;
 }
 
-/** Lines from the revealed answer to each of its destinations, marked domestic or not for their colour. */
-function routeLines(origin: Airport, destinations: Destination[], domestic: Destination[]) {
+/** Lines from the revealed answer (or any point) to each of its destinations, marked domestic or not for their colour. */
+function routeLines(origin: [number, number], destinations: Destination[], domestic: Destination[]) {
   const lines: FeatureCollection<LineString, { domestic: boolean }> = {
     type: 'FeatureCollection',
     features: [...destinations.map((d) => [d, false] as const), ...domestic.map((d) => [d, true] as const)]
       .map(([d, isDomestic]) => ({
         type: 'Feature',
-        geometry: { type: 'LineString', coordinates: arc(origin.lngLat, d.airport.lngLat) },
+        geometry: { type: 'LineString', coordinates: arc(origin, d.airport.lngLat) },
         properties: { domestic: isDomestic },
       })),
   };
@@ -271,6 +274,7 @@ const withRouteLayers = (palette: Palette): maplibregl.TransformStyleFunction =>
     [DOMESTIC]: { type: 'geojson', data: empty },
     [ROUTES]: { type: 'geojson', data: empty },
     [PEEK]: { type: 'geojson', data: empty },
+    [POINTER]: { type: 'geojson', data: empty },
   },
   layers: [
     ...next.layers,
@@ -299,6 +303,14 @@ const withRouteLayers = (palette: Palette): maplibregl.TransformStyleFunction =>
       paint: {
         'line-color': ['case', ['get', 'domestic'], palette.domestic, palette.dots.missing],
         'line-width': 1.4, 'line-opacity': 0.55,
+      },
+    },
+    {
+      // Follow pointer: as the revealed routes, but fainter and dashed, so they read as a what-if.
+      id: 'pointer-line', type: 'line', source: POINTER,
+      paint: {
+        'line-color': ['case', ['get', 'domestic'], palette.domestic, palette.dots.missing],
+        'line-width': 1.2, 'line-opacity': 0.5, 'line-dasharray': [3, 2],
       },
     },
     {
@@ -375,6 +387,8 @@ export default function MapView(props: Props) {
   /** The current style has loaded: its sources and layers exist. False while a new palette loads. */
   const styleReadyRef = useRef(false);
   const latest = useRef(props);
+  /** Where the mouse pointer last was over the map, or null once it left. */
+  const pointerRef = useRef<[number, number] | null>(null);
 
   latest.current = props;
 
@@ -412,6 +426,19 @@ export default function MapView(props: Props) {
     map.on('mouseenter', 'candidate-icon', () => { map.getCanvas().style.cursor = 'pointer'; });
     map.on('mouseleave', 'candidate-icon', () => { map.getCanvas().style.cursor = ''; });
 
+    // Follow pointer: redrawn at most once a frame, however fast the mouse moves.
+    let pointerFrame = 0;
+    const movePointer = (at: [number, number] | null) => {
+      pointerRef.current = at;
+      if (pointerFrame || !latest.current.followPointer) return;
+      pointerFrame = requestAnimationFrame(() => {
+        pointerFrame = 0;
+        if (styleReadyRef.current) drawPointer(map, latest.current, pointerRef.current);
+      });
+    };
+    map.on('mousemove', (e) => movePointer([e.lngLat.lng, e.lngLat.lat]));
+    map.getCanvas().addEventListener('mouseleave', () => movePointer(null));
+
     let frame = 0;
     const pulse = (now: number) => {
       const t = (now % PULSE_MS) / PULSE_MS;
@@ -425,12 +452,13 @@ export default function MapView(props: Props) {
     map.on('load', () => {
       loadedRef.current = true;
       styleReadyRef.current = true;
-      render(map, latest.current);
+      render(map, latest.current, pointerRef.current);
       frame = requestAnimationFrame(pulse);
     });
 
     return () => {
       cancelAnimationFrame(frame);
+      cancelAnimationFrame(pointerFrame);
       loadedRef.current = false;
       styleReadyRef.current = false;
       map.remove();
@@ -450,7 +478,7 @@ export default function MapView(props: Props) {
     const restyled = () => {
       if (!loadedRef.current) return;
       styleReadyRef.current = true;
-      render(map, latest.current);
+      render(map, latest.current, pointerRef.current);
     };
     map.once('style.load', restyled);
     return () => {
@@ -461,10 +489,10 @@ export default function MapView(props: Props) {
   useEffect(() => {
     const map = mapRef.current;
     if (!map || !styleReadyRef.current) return;
-    render(map, props);
+    render(map, props, pointerRef.current);
   }, [
     props.origin, props.answer, props.destinations, props.compare, props.wrongCountries, props.candidates,
-    props.ruledOut, props.domestic, props.won, props.peek, props.highlightCountries,
+    props.ruledOut, props.domestic, props.won, props.peek, props.highlightCountries, props.followPointer,
   ]);
 
   useEffect(() => {
@@ -490,9 +518,9 @@ export default function MapView(props: Props) {
   return <div ref={containerRef} className="map" />;
 }
 
-function render(
-  map: MlMap, { origin, answer, destinations, compare, wrongCountries, candidates, ruledOut, domestic, won, peek, highlightCountries, palette }: Props,
-) {
+function render(map: MlMap, props: Props, pointer: [number, number] | null) {
+  const { origin, answer, destinations, compare, wrongCountries, candidates, ruledOut, domestic, won, peek, highlightCountries, palette } = props;
+  drawPointer(map, props, pointer);
   const routes = routeDots(answer, destinations, compare);
   (map.getSource(DESTS) as GeoJSONSource).setData(routes);
   const tint = countryTint(highlightCountries ? routes.features : [], palette);
@@ -513,12 +541,19 @@ function render(
   );
   // Once the answer is revealed its own dot takes over.
   (map.getSource(PEEK) as GeoJSONSource).setData(peek && !origin ? dots([{ airport: peek, r: 0 }]) : empty);
-  (map.getSource(ROUTES) as GeoJSONSource).setData(origin ? routeLines(origin, destinations, domestic) : empty);
+  (map.getSource(ROUTES) as GeoJSONSource).setData(origin ? routeLines(origin.lngLat, destinations, domestic) : empty);
   (map.getSource(DOMESTIC) as GeoJSONSource).setData(
     dots(domestic.map((d) => ({ airport: d.airport, r: radius(d.passengers) }))),
   );
   (map.getSource(RULED_OUT) as GeoJSONSource).setData(dots(ruledOut.map((airport) => ({ airport, r: GUESS_RADIUS }))));
   for (const layer of ['wrong-country-hatch', 'wrong-country-border']) map.setFilter(layer, countryFilter(wrongCountries));
+}
+
+/** Follow pointer's lines, from the pointer to each destination (and revealed domestic one); none when off or outside the map. */
+function drawPointer(map: MlMap, { followPointer, destinations, domestic }: Props, pointer: [number, number] | null) {
+  (map.getSource(POINTER) as GeoJSONSource).setData(
+    followPointer && pointer ? routeLines(pointer, destinations, domestic) : empty,
+  );
 }
 
 /** Show the whole world, whatever the airport. */
