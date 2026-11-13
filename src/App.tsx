@@ -182,6 +182,14 @@ const bulb = (
   </svg>
 );
 
+const send = (
+  <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="2"
+    strokeLinecap="round" strokeLinejoin="round">
+    <path d="M22 2 11 13" />
+    <path d="M22 2 15 22l-4-9-9-4 20-7z" />
+  </svg>
+);
+
 const cog = (
   <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="2"
     strokeLinecap="round" strokeLinejoin="round">
@@ -344,6 +352,20 @@ export default function App({ daily }: { daily: Daily }) {
     if (move({ kind: 'country', code: country.code })?.countryKnown) setMode('airport');
   };
 
+  /** The send button: the airport filled in from the map, else the top match for what's typed. */
+  const sendGuess = () => {
+    if (!query.trim() && !pending) return;
+    if (mode === 'country') {
+      if (countryMatches[0]) guessCountry(countryMatches[0]);
+    } else {
+      const airport = pending ?? airportMatches[0];
+      if (airport) guessAirport(airport);
+    }
+  };
+  const canSend = mode === 'country'
+    ? !!query.trim() && countryMatches.length > 0
+    : !!pending || (!!query.trim() && airportMatches.length > 0);
+
   const giveUp = () => move({ kind: 'give-up' });
 
   const revealDomestic = () => move({ kind: 'hint' });
@@ -478,6 +500,22 @@ export default function App({ daily }: { daily: Daily }) {
             <button className={shareable ? undefined : 'primary'} onClick={next} autoFocus={!shareable}>Next airport</button>
           </div>
         ) : (
+          <>
+          {!countryKnown && (
+            <div className="mode-toggle" role="radiogroup" aria-label="Guess a country or an airport">
+              {(['country', 'airport'] as const).map((m) => (
+                <button
+                  key={m}
+                  role="radio"
+                  aria-checked={mode === m}
+                  className={mode === m ? 'on' : undefined}
+                  onClick={() => mode !== m && switchMode(m)}
+                >
+                  {m === 'country' ? 'Country' : 'Airport'}
+                </button>
+              ))}
+            </div>
+          )}
           <div className="guess" ref={rowRef}>
             {mode === 'country' ? (
               <Combo
@@ -506,18 +544,12 @@ export default function App({ daily }: { daily: Daily }) {
                 ariaLabel="Your airport guess"
               />
             )}
-            {countryKnown && (
-              <button className="primary" disabled={!pending} onClick={() => pending && guessAirport(pending)}>
-                Guess
-              </button>
-            )}
-            {!countryKnown && (
-              mode === 'country'
-                ? <button onClick={() => switchMode('airport')}>Guess airport</button>
-                : <button onClick={() => switchMode('country')}>Guess country</button>
-            )}
+            <button className="primary send" title="Send guess" aria-label="Send guess" disabled={!canSend} onClick={sendGuess}>
+              {send}
+            </button>
             <button onClick={giveUp}>Give up</button>
           </div>
+          </>
         )}
 
         <div className="footer">

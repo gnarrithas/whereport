@@ -220,3 +220,13 @@ button.primary:disabled { opacity: 0.5; cursor: default; }
 [class*='maplibregl-popup-anchor-top'] .maplibregl-popup-tip { border-bottom-color: var(--surface); }
 [class*='maplibregl-popup-anchor-left'] .maplibregl-popup-tip { border-right-color: var(--surface); }
 [class*='maplibregl-popup-anchor-right'] .maplibregl-popup-tip { border-left-color: var(--surface); }
+
+/* Country / Airport switch above the answer bar. */
+.mode-toggle {
+  display: inline-flex; align-self: flex-start; width: auto !important; min-width: 0 !important;
+  padding: 3px; gap: 2px; border-radius: 9px; background: var(--hover); border: 1px solid var(--border);
+}
+.mode-toggle button { padding: 4px 14px; border: 0; border-radius: 6px; background: none; font-size: 0.9rem; color: var(--muted); }
+.mode-toggle button:hover { color: var(--text); background: none; }
+.mode-toggle button.on { background: var(--surface); color: var(--text); font-weight: 600; box-shadow: 0 1px 3px var(--shadow); }
+.guess .send { display: grid; place-items: center; padding: 0 14px; }
