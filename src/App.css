@@ -131,6 +131,9 @@ button.link:hover { background: none; color: var(--accent-hover); }
   display: flex; gap: 6px;
 }
 .prompt { padding-right: 64px; }
+.prompt.dev { padding-right: 150px; }
+/* Dev mode only: a share button left of the corner buttons, as tall as them. */
+.dev-share { height: 26px; padding: 0 10px; font-size: 0.82rem; line-height: 1; border-style: dashed; }
 .corner-toggle {
   display: grid; place-items: center;
   width: 26px; height: 26px; padding: 0; border-radius: 50%;
@@ -203,11 +206,11 @@ button.link:hover { background: none; color: var(--accent-hover); }
 
 /* Map options: right of the question card, or below it at the right edge when there's no room beside it. */
 .options-box {
-  position: absolute; top: 16px; z-index: 1; width: 260px; box-sizing: border-box;
+  position: absolute; top: 16px; z-index: 1; width: 220px; box-sizing: border-box;
   display: flex; flex-direction: column; gap: 8px; padding: 14px 16px;
 }
 .options-box.below { right: 16px; }
 .options-box label { white-space: nowrap; display: flex; align-items: center; gap: 8px; font-size: 0.9rem; cursor: pointer; user-select: none; }
 .options-box label.disabled { color: var(--faint); cursor: default; }
 .options-box input { margin: 0; cursor: inherit; }
-.options-box button.dev { align-self: flex-start; padding: 4px 12px; font-size: 0.85rem; border-style: dashed; }
+

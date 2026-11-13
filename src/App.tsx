@@ -218,7 +218,7 @@ function Settings({ dark, onDark, colorblind, onColorblind }: SettingsProps) {
 }
 
 /** The options box's width, its gap from the question card, and the room kept clear for the map's zoom buttons. */
-const OPTIONS_WIDTH = 260;
+const OPTIONS_WIDTH = 220;
 const OPTIONS_GAP = 16;
 const ZOOM_STRIP = 56;
 
@@ -390,21 +390,17 @@ export default function App({ daily }: { daily: Daily }) {
       >
         <label>
           <input type="checkbox" checked={highlightCountries} onChange={(e) => setHighlightCountries(e.target.checked)} />
-          Highlight destination countries
+          Destination countries
         </label>
         <label title="Draw lines from the mouse pointer to every destination" className={done ? 'disabled' : undefined}>
           <input type="checkbox" checked={followPointer} disabled={done} onChange={(e) => setFollowPointer(e.target.checked)} />
           Follow pointer
         </label>
         {DEV_MODE && (
-          <>
-            {/* An action, not a state, so a button rather than a checkbox. */}
-            <button className="dev" onClick={share}>{shareLabel}</button>
-            <label className={done ? 'disabled' : undefined}>
-              <input type="checkbox" checked={peeking && !done} disabled={done} onChange={(e) => setPeeking(e.target.checked)} />
-              Reveal {peeking && !done ? target.code : ''}
-            </label>
-          </>
+          <label className={done ? 'disabled' : undefined}>
+            <input type="checkbox" checked={peeking && !done} disabled={done} onChange={(e) => setPeeking(e.target.checked)} />
+            Reveal {peeking && !done ? target.code : ''}
+          </label>
         )}
       </div>
 
@@ -446,10 +442,11 @@ export default function App({ daily }: { daily: Daily }) {
 
       <div className="card game" ref={gameRef}>
         <div className="corner">
+          {DEV_MODE && <button className="dev-share" onClick={share}>{shareLabel}</button>}
           <Settings dark={dark} onDark={(on) => setTheme(on ? 'dark' : 'light')} colorblind={colorblind} onColorblind={setColorblind} />
           <Help />
         </div>
-        <div className="prompt">
+        <div className={DEV_MODE ? 'prompt dev' : 'prompt'}>
           Which airport has direct international flights to these {destinations.length} destinations?
         </div>
 
