@@ -42,7 +42,7 @@ html, body, #root, .app { margin: 0; height: 100%; }
 .brand {
   /* Centred in the strip left of the 840px question card. */
   /* Its vertical centre follows the answer row: App sets top to the row's middle. */
-  position: absolute; top: 94px; left: calc((100% - 840px) / 4); transform: translate(-50%, -50%) rotate(-3deg);
+  position: absolute; top: 94px; left: calc((100% - 840px) / 4); transform: translate(-50%, -50%) rotate(-9deg);
   z-index: 1; margin: 0; white-space: nowrap;
   font-family: 'Fredoka', ui-rounded, 'Arial Rounded MT Bold', sans-serif; font-weight: 700;
   /* As large as fits in that strip (the title is ~6.3em wide), up to 3.6rem. */
