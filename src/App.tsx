@@ -40,10 +40,11 @@ interface ComboProps<T> {
   /** Enter with no dropdown choice to make, e.g. to send an airport filled in from the map. */
   onSubmit?: () => void;
   inputRef?: Ref<HTMLInputElement>;
+  disabled?: boolean;
 }
 
 function Combo<T>({
-  matches, query, onQuery, onPick, keyOf, render, placeholder, ariaLabel, onSubmit, inputRef,
+  matches, query, onQuery, onPick, keyOf, render, placeholder, ariaLabel, onSubmit, inputRef, disabled,
 }: ComboProps<T>) {
   const [open, setOpen] = useState(false);
   const [active, setActive] = useState(0);
@@ -86,6 +87,7 @@ function Combo<T>({
         onBlur={() => setOpen(false)}
         placeholder={placeholder}
         autoFocus
+        disabled={disabled}
         spellCheck={false}
         role="combobox"
         aria-expanded={open && matches.length > 0}
@@ -489,67 +491,66 @@ export default function App({ daily }: { daily: Daily }) {
           Which airport has direct international flights to these {destinations.length} destinations?
         </div>
 
-        {/* The answer bar stays laid out (hidden) after the game, so the card keeps its height. */}
-        <div className="answer-area">
-          <div className="answer" inert={done} aria-hidden={done}>
-            <div className="mode-row">
-              <div className={`mode-toggle ${mode}`} role="radiogroup" aria-label="Guess a country or an airport">
-                {(['country', 'airport'] as const).map((m) => (
-                  <button
-                    key={m}
-                    role="radio"
-                    aria-checked={mode === m}
-                    className={mode === m ? 'on' : undefined}
-                    // Once the country is found, only airports are left to guess.
-                    disabled={countryKnown && m === 'country'}
-                    onClick={() => mode !== m && switchMode(m)}
-                  >
-                    {m === 'country' ? 'Country' : 'Airport'}
-                  </button>
-                ))}
-              </div>
-              {countryKnown && <div className="hint">Country: <strong>{targetCountry}</strong> ✓</div>}
+        {/* The answer bar stays after the game, greyed out, so the card keeps its layout. */}
+        <div className="answer">
+          <div className="mode-row">
+            <div className={`mode-toggle ${mode}${done ? ' off' : ''}`} role="radiogroup" aria-label="Guess a country or an airport">
+              {(['country', 'airport'] as const).map((m) => (
+                <button
+                  key={m}
+                  role="radio"
+                  aria-checked={mode === m}
+                  className={mode === m ? 'on' : undefined}
+                  // Once the country is found, only airports are left to guess.
+                  disabled={done || (countryKnown && m === 'country')}
+                  onClick={() => mode !== m && switchMode(m)}
+                >
+                  {m === 'country' ? 'Country' : 'Airport'}
+                </button>
+              ))}
             </div>
-            <div className="guess">
-              {mode === 'country' ? (
-                <Combo
-                  key="country"
-                  matches={countryMatches}
-                  query={query}
-                  onQuery={setQuery}
-                  onPick={guessCountry}
-                  keyOf={(c) => c.code}
-                  render={(c) => <><strong>{c.name}</strong> <span className="code">{c.code}</span></>}
-                  placeholder="Type a country"
-                  ariaLabel="Your country guess"
-                />
-              ) : (
-                <Combo
-                  key="airport"
-                  matches={airportMatches}
-                  query={query}
-                  onQuery={typeAirport}
-                  onPick={guessAirport}
-                  onSubmit={() => pending && guessAirport(pending)}
-                  inputRef={answerRef}
-                  keyOf={(a) => a.code}
-                  render={(a) => <><strong>{a.city || a.name}</strong> {a.name} <span className="code">{a.code}</span></>}
-                  placeholder={countryKnown ? `Type an airport in ${targetCountry}` : 'Type a city, airport name or code'}
-                  ariaLabel="Your airport guess"
-                />
-              )}
-              <button className="primary send" title="Send guess" aria-label="Send guess" disabled={!canSend} onClick={sendGuess}>
-                {send}
-              </button>
-              <button onClick={giveUp}>Give up</button>
-            </div>
+            {countryKnown && <div className="hint">Country: <strong>{targetCountry}</strong> ✓</div>}
           </div>
-          {done && (
-            <div className="actions">
-              {shareable && <button className="primary" onClick={share} autoFocus>{shareLabel}</button>}
-              <button className={shareable ? undefined : 'primary'} onClick={next} autoFocus={!shareable}>Next airport</button>
-            </div>
-          )}
+          <div className="guess">
+            {mode === 'country' ? (
+              <Combo
+                key="country"
+                matches={countryMatches}
+                query={query}
+                onQuery={setQuery}
+                onPick={guessCountry}
+                keyOf={(c) => c.code}
+                render={(c) => <><strong>{c.name}</strong> <span className="code">{c.code}</span></>}
+                placeholder="Type a country"
+                ariaLabel="Your country guess"
+                disabled={done}
+              />
+            ) : (
+              <Combo
+                key="airport"
+                matches={airportMatches}
+                query={query}
+                onQuery={typeAirport}
+                onPick={guessAirport}
+                onSubmit={() => pending && guessAirport(pending)}
+                inputRef={answerRef}
+                keyOf={(a) => a.code}
+                render={(a) => <><strong>{a.city || a.name}</strong> {a.name} <span className="code">{a.code}</span></>}
+                placeholder={countryKnown ? `Type an airport in ${targetCountry}` : 'Type a city, airport name or code'}
+                ariaLabel="Your airport guess"
+                disabled={done}
+              />
+            )}
+            <button className="primary send" title="Send guess" aria-label="Send guess" disabled={done || !canSend} onClick={sendGuess}>
+              {send}
+            </button>
+            {!done ? <button onClick={giveUp}>Give up</button> : (
+              <>
+                {shareable && <button className="primary" onClick={share} autoFocus>{shareLabel}</button>}
+                <button className={shareable ? undefined : 'primary'} onClick={next} autoFocus={!shareable}>Next airport</button>
+              </>
+            )}
+          </div>
         </div>
 
         <div className="footer">

@@ -76,13 +76,7 @@ html, body, #root, .app { margin: 0; height: 100%; }
 .status { flex-basis: 100%; font-size: 0.9rem; color: var(--muted); }
 .bad { color: var(--bad); }
 
-.actions { display: flex; gap: 8px; justify-content: center; }
-/* The end-of-game buttons sit over the hidden answer bar, so the card doesn't change height. */
-.answer-area { display: grid; }
-.answer-area > * { grid-area: 1 / 1; min-width: 0; }
 .answer { display: flex; flex-direction: column; gap: 10px; }
-.answer[inert] { visibility: hidden; }
-.answer-area > .actions { align-self: center; }
 button {
   font: inherit; cursor: pointer;
   padding: 8px 18px; border-radius: 8px;
@@ -109,6 +103,7 @@ button.primary:disabled { opacity: 0.5; cursor: default; }
   padding: 8px 12px; border-radius: 8px; border: 1px solid var(--border);
   background: var(--surface); color: var(--text);
 }
+.combo input:disabled { opacity: 0.5; background: var(--hover); cursor: default; }
 .combo input:focus { outline: 2px solid var(--accent); outline-offset: -1px; }
 .options {
   position: absolute; top: calc(100% + 4px); left: 0; right: 0; z-index: 1;
@@ -246,6 +241,8 @@ button.primary:disabled { opacity: 0.5; cursor: default; }
 }
 .mode-toggle button:hover { color: var(--text); background: none; }
 .mode-toggle button:disabled { opacity: 0.45; cursor: default; }
+.mode-toggle.off { opacity: 0.5; }
+.mode-toggle.off button:disabled { opacity: 1; }
 .mode-toggle button.on { color: var(--text); }
 .guess { align-items: stretch; }
 .guess > button { line-height: 1.25; }
