@@ -264,18 +264,12 @@ export default function App({ daily }: { daily: Daily }) {
   /** An airport clicked on the map, filled into the answer bar and waiting for Enter or Guess. */
   const [pending, setPending] = useState<Airport | null>(null);
   const answerRef = useRef<HTMLInputElement>(null);
-  // The logo is vertically centred on the answer row (or the Next button), which moves as hints appear.
-  const rowRef = useRef<HTMLDivElement>(null);
-  const [logoY, setLogoY] = useState<number | null>(null);
   // The options box sits right of the question card, whose width follows the question.
   const gameRef = useRef<HTMLDivElement>(null);
   /** Where the options box goes: beside the card ("left:<px>") or, when there's no room, below it ("top:<px>"). */
   const [optionsAt, setOptionsAt] = useState<string | null>(null);
   const [, setResized] = useState(0);
   useLayoutEffect(() => {
-    const row = rowRef.current?.getBoundingClientRect();
-    const y = row ? Math.round(row.top + row.height / 2) : null;
-    if (y !== logoY) setLogoY(y);
     const card = gameRef.current?.getBoundingClientRect();
     // Below the card when it doesn't fit between the card and the map's zoom buttons.
     const at = !card ? null
@@ -398,7 +392,7 @@ export default function App({ daily }: { daily: Daily }) {
 
   return (
     <div className="app">
-      <h1 className="brand" style={logoY === null ? undefined : { top: logoY }}>Whereport</h1>
+      <h1 className="brand">Whereport</h1>
       <MapView
         origin={done ? target : null}
         answer={target}
@@ -491,7 +485,7 @@ export default function App({ daily }: { daily: Daily }) {
         </div>
 
         {done ? (
-          <div className="actions" ref={rowRef}>
+          <div className="actions">
             {shareable && <button className="primary" onClick={share} autoFocus>{shareLabel}</button>}
             <button className={shareable ? undefined : 'primary'} onClick={next} autoFocus={!shareable}>Next airport</button>
           </div>
@@ -515,7 +509,7 @@ export default function App({ daily }: { daily: Daily }) {
             </div>
             {countryKnown && <div className="hint">Country: <strong>{targetCountry}</strong> ✓</div>}
           </div>
-          <div className="guess" ref={rowRef}>
+          <div className="guess">
             {mode === 'country' ? (
               <Combo
                 key="country"
