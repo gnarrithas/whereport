@@ -199,7 +199,7 @@ button.primary:disabled { opacity: 0.5; cursor: default; }
 
 /* Map options: right of the question card, or below it at the right edge when there's no room beside it. */
 .options-box {
-  position: absolute; top: 16px; z-index: 1; width: 220px; box-sizing: border-box;
+  position: absolute; top: 16px; z-index: 1; width: 250px; box-sizing: border-box;
   display: flex; flex-direction: column; gap: 8px; padding: 14px 16px;
 }
 .options-box.below { right: 16px; }
@@ -207,10 +207,10 @@ button.primary:disabled { opacity: 0.5; cursor: default; }
 .options-box label.disabled { color: var(--faint); cursor: default; }
 .options-box input { margin: 0; cursor: inherit; }
 .options-box .domestic-hint {
-  margin-top: 4px; padding: 6px 8px; font-size: 0.9rem; white-space: nowrap;
+  margin-top: 6px; padding: 10px 12px; font-size: 0.95rem; white-space: nowrap;
   display: flex; align-items: center; justify-content: center; gap: 6px;
 }
-.options-box .domestic-hint svg { color: #d97706; flex: none; }
+.options-box .domestic-hint svg { color: #d97706; flex: none; width: 18px; height: 18px; }
 
 /* Map tooltips are text only; the country one follows the pointer and mustn't catch it.
    No compositor layer: centring a fractional-width popup puts it off the pixel grid, blurring its text. */

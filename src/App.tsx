@@ -226,7 +226,7 @@ function Settings({ dark, onDark, colorblind, onColorblind }: SettingsProps) {
 }
 
 /** The options box's width, its gap from the question card, and the room kept clear for the map's zoom buttons. */
-const OPTIONS_WIDTH = 220;
+const OPTIONS_WIDTH = 250;
 const OPTIONS_GAP = 16;
 const ZOOM_STRIP = 56;
 
