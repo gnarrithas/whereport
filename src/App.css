@@ -201,17 +201,13 @@ button.link:hover { background: none; color: var(--accent-hover); }
 .swatch.faded { opacity: 0.55; }
 .swatch.ring { border: 1.5px solid #111827; box-shadow: none; width: 10px; height: 10px; }
 
-/* Dev mode only: top right, left of the map's zoom buttons. */
-.dev-tools { position: absolute; top: 10px; right: 52px; z-index: 2; display: flex; gap: 6px; }
-.dev-tools button { padding: 4px 12px; font-size: 0.85rem; border-style: dashed; }
-
-/* Map options, right of the feedback line. */
-.toggle { display: flex; align-items: center; gap: 6px; font-size: 0.9rem; color: var(--muted); cursor: pointer; user-select: none; }
-.toggle input { margin: 0; cursor: pointer; }
-/* Feedback on the left, map options on the right; they stack when the line is too narrow. */
-.footer { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 4px 16px; }
-.footer .status { flex: 1 1 auto; flex-basis: auto; }
-.footer .map-options { margin-left: auto; display: flex; align-items: baseline; gap: 12px; }
-.footer .toggle { white-space: nowrap; }
-.footer button.follow { padding: 2px 10px; font-size: 0.85rem; color: var(--muted); white-space: nowrap; }
-.footer button.follow[aria-pressed='true'] { background: var(--active); border-color: var(--accent); color: var(--text); }
+/* Map options: right of the question card, or below it at the right edge when there's no room beside it. */
+.options-box {
+  position: absolute; top: 16px; z-index: 1; width: 260px; box-sizing: border-box;
+  display: flex; flex-direction: column; gap: 8px; padding: 14px 16px;
+}
+.options-box.below { right: 16px; }
+.options-box label { white-space: nowrap; display: flex; align-items: center; gap: 8px; font-size: 0.9rem; cursor: pointer; user-select: none; }
+.options-box label.disabled { color: var(--faint); cursor: default; }
+.options-box input { margin: 0; cursor: inherit; }
+.options-box button.dev { align-self: flex-start; padding: 4px 12px; font-size: 0.85rem; border-style: dashed; }

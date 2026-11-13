@@ -217,6 +217,11 @@ function Settings({ dark, onDark, colorblind, onColorblind }: SettingsProps) {
   );
 }
 
+/** The options box's width, its gap from the question card, and the room kept clear for the map's zoom buttons. */
+const OPTIONS_WIDTH = 260;
+const OPTIONS_GAP = 16;
+const ZOOM_STRIP = 56;
+
 /** Starts on today's airport, as far as it was played before; "Next airport" then moves on to random ones. */
 export default function App({ daily }: { daily: Daily }) {
   const [target, setTarget] = useState(daily.airport);
@@ -244,11 +249,21 @@ export default function App({ daily }: { daily: Daily }) {
   // The logo is vertically centred on the answer row (or the Next button), which moves as hints appear.
   const rowRef = useRef<HTMLDivElement>(null);
   const [logoY, setLogoY] = useState<number | null>(null);
+  // The options box sits right of the question card, whose width follows the question.
+  const gameRef = useRef<HTMLDivElement>(null);
+  /** Where the options box goes: beside the card ("left:<px>") or, when there's no room, below it ("top:<px>"). */
+  const [optionsAt, setOptionsAt] = useState<string | null>(null);
   const [, setResized] = useState(0);
   useLayoutEffect(() => {
     const row = rowRef.current?.getBoundingClientRect();
     const y = row ? Math.round(row.top + row.height / 2) : null;
     if (y !== logoY) setLogoY(y);
+    const card = gameRef.current?.getBoundingClientRect();
+    // Below the card when it doesn't fit between the card and the map's zoom buttons.
+    const at = !card ? null
+      : card.right + OPTIONS_GAP + OPTIONS_WIDTH + ZOOM_STRIP <= window.innerWidth
+        ? `left:${Math.round(card.right + OPTIONS_GAP)}` : `top:${Math.round(card.bottom + 12)}`;
+    if (at !== optionsAt) setOptionsAt(at);
   });
   useEffect(() => {
     const onResize = () => setResized((n) => n + 1);
@@ -369,14 +384,29 @@ export default function App({ daily }: { daily: Daily }) {
         onCandidateClick={fillFromMap}
       />
 
-      {DEV_MODE && !done && (
-        <div className="dev-tools">
-          <button onClick={share}>{shareLabel}</button>
-          <button onClick={() => setPeeking((p) => !p)} aria-pressed={peeking}>
-            {peeking ? `Hide ${target.code}` : 'Reveal'}
-          </button>
-        </div>
-      )}
+      <div
+        className={optionsAt?.startsWith('top:') ? 'card options-box below' : 'card options-box'}
+        style={optionsAt ? { [optionsAt.split(':')[0]]: Number(optionsAt.split(':')[1]) } : { visibility: 'hidden' }}
+      >
+        <label>
+          <input type="checkbox" checked={highlightCountries} onChange={(e) => setHighlightCountries(e.target.checked)} />
+          Highlight destination countries
+        </label>
+        <label title="Draw lines from the mouse pointer to every destination" className={done ? 'disabled' : undefined}>
+          <input type="checkbox" checked={followPointer} disabled={done} onChange={(e) => setFollowPointer(e.target.checked)} />
+          Follow pointer
+        </label>
+        {DEV_MODE && (
+          <>
+            {/* An action, not a state, so a button rather than a checkbox. */}
+            <button className="dev" onClick={share}>{shareLabel}</button>
+            <label className={done ? 'disabled' : undefined}>
+              <input type="checkbox" checked={peeking && !done} disabled={done} onChange={(e) => setPeeking(e.target.checked)} />
+              Reveal {peeking && !done ? target.code : ''}
+            </label>
+          </>
+        )}
+      </div>
 
       {wrongGuesses.length > 0 && (
         <div className="card diff-panel">
@@ -414,7 +444,7 @@ export default function App({ daily }: { daily: Daily }) {
         </div>
       )}
 
-      <div className="card game">
+      <div className="card game" ref={gameRef}>
         <div className="corner">
           <Settings dark={dark} onDark={(on) => setTheme(on ? 'dark' : 'light')} colorblind={colorblind} onColorblind={setColorblind} />
           <Help />
@@ -502,22 +532,6 @@ export default function App({ daily }: { daily: Daily }) {
             ) : (
               <>Pick an airport from the list, or guess the country first. Routes as of {datasetDate}.</>
             )}
-          </div>
-          <div className="map-options">
-            {!done && (
-              <button
-                className="follow"
-                aria-pressed={followPointer}
-                title="Draw lines from the mouse pointer to every destination"
-                onClick={() => setFollowPointer((on) => !on)}
-              >
-                Follow pointer
-              </button>
-            )}
-            <label className="toggle">
-              <input type="checkbox" checked={highlightCountries} onChange={(e) => setHighlightCountries(e.target.checked)} />
-              Highlight destination countries
-            </label>
           </div>
         </div>
       </div>
