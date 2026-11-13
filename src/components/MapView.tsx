@@ -77,8 +77,6 @@ const ROUTES = 'routes';
 const PEEK = 'peek';
 const POINTER = 'pointer';
 const HOVER = 'hover-airports';
-/** Airports on hover: small hollow dots, so they stay apart from the destinations and the candidate icons. */
-const HOVER_RADIUS = 3;
 const ARC_STEPS = 48;
 /** Wrong guesses are drawn mid-sized among the destination dots (3–7px). */
 const GUESS_RADIUS = 5;
@@ -326,14 +324,6 @@ const withRouteLayers = (palette: Palette): maplibregl.TransformStyleFunction =>
       },
     },
     {
-      // Under the destinations, which can never be the answer and keep their own dots.
-      id: 'hover-airport', type: 'circle', source: HOVER,
-      paint: {
-        'circle-color': '#fff', 'circle-opacity': 0.9, 'circle-radius': HOVER_RADIUS,
-        'circle-stroke-color': '#374151', 'circle-stroke-width': 1.5,
-      },
-    },
-    {
       id: 'dest-pulse', type: 'circle', source: DESTS,
       filter: ['!=', ['get', 'kind'], 'extra'],
       paint: { 'circle-color': dotColor(palette), 'circle-radius': ['get', 'r'], 'circle-opacity': 0 },
@@ -349,6 +339,14 @@ const withRouteLayers = (palette: Palette): maplibregl.TransformStyleFunction =>
     },
     {
       id: 'candidate-icon', type: 'symbol', source: CANDIDATES,
+      layout: {
+        'icon-image': AIRPORT, 'icon-allow-overlap': true, 'icon-ignore-placement': true,
+        'icon-size': AIRPORT_ICON_SIZE,
+      },
+    },
+    {
+      // Airports on hover: drawn just as a known country's candidates are.
+      id: 'hover-airport', type: 'symbol', source: HOVER,
       layout: {
         'icon-image': AIRPORT, 'icon-allow-overlap': true, 'icon-ignore-placement': true,
         'icon-size': AIRPORT_ICON_SIZE,
@@ -616,7 +614,7 @@ function hoverAirports({ origin, destinations, domestic, candidates, ruledOut }:
 /** Airports on hover's dots, for the hovered country; none when off or outside any country. */
 function drawHover(map: MlMap, props: Props, country: string | null) {
   (map.getSource(HOVER) as GeoJSONSource).setData(
-    props.hoverAirports && country ? dots(hoverAirports(props, country).map((airport) => ({ airport, r: HOVER_RADIUS }))) : empty,
+    props.hoverAirports && country ? dots(hoverAirports(props, country).map((airport) => ({ airport, r: 0 }))) : empty,
   );
 }
 
