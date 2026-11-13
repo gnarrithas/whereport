@@ -498,7 +498,7 @@ export default function App({ daily }: { daily: Daily }) {
         ) : (
           <>
           <div className="mode-row">
-            <div className="mode-toggle" role="radiogroup" aria-label="Guess a country or an airport">
+            <div className={`mode-toggle ${mode}`} role="radiogroup" aria-label="Guess a country or an airport">
               {(['country', 'airport'] as const).map((m) => (
                 <button
                   key={m}

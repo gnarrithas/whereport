@@ -224,11 +224,25 @@ button.primary:disabled { opacity: 0.5; cursor: default; }
 /* Country / Airport switch above the answer bar, with the found country beside it. */
 .mode-row { display: flex; align-items: center; gap: 12px; }
 .mode-toggle {
-  display: inline-flex;
-  padding: 3px; gap: 2px; border-radius: 9px; background: var(--hover); border: 1px solid var(--border);
+  /* Equal halves, so the thumb slides exactly one half across. */
+  position: relative; display: inline-grid; grid-template-columns: 1fr 1fr;
+  padding: 3px; border-radius: 9px; background: var(--hover); border: 1px solid var(--border);
 }
-.mode-toggle button { padding: 4px 14px; border: 0; border-radius: 6px; background: none; font-size: 0.9rem; color: var(--muted); }
+.mode-toggle::before {
+  content: ''; position: absolute; top: 3px; bottom: 3px; left: 3px; width: calc(50% - 3px);
+  border-radius: 6px; background: var(--surface); box-shadow: 0 1px 3px var(--shadow);
+  transition: transform 0.22s cubic-bezier(0.4, 0, 0.2, 1);
+}
+.mode-toggle.airport::before { transform: translateX(100%); }
+.mode-toggle button {
+  position: relative; padding: 4px 14px; border: 0; border-radius: 6px; background: none;
+  font-size: 0.9rem; color: var(--muted); transition: color 0.22s;
+}
 .mode-toggle button:hover { color: var(--text); background: none; }
 .mode-toggle button:disabled { opacity: 0.45; cursor: default; }
-.mode-toggle button.on { background: var(--surface); color: var(--text); font-weight: 600; box-shadow: 0 1px 3px var(--shadow); }
-.guess .send { display: grid; place-items: center; padding: 0 14px; }
+.mode-toggle button.on { color: var(--text); }
+.guess { align-items: stretch; }
+.guess > button { line-height: 1.25; }
+/* The icon is exactly one text line tall, so the send button matches Give up in every browser. */
+.guess .send { padding: 8px 14px; }
+.guess .send svg { display: block; width: 1.25em; height: 1.25em; }
